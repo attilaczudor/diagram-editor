@@ -177,7 +177,7 @@ function ProjectItem({ project, isActive, isOpen, onSwitch, onRename, onDelete, 
 
 // ─── Main sidebar ─────────────────────────────────────────────────────────────
 
-export default function ProjectSidebar() {
+export default function ProjectSidebar({ onRequestClose }: { onRequestClose?: () => void }) {
   const [isOpen, setIsOpen] = useState(true);
   const {
     lang,
@@ -222,7 +222,7 @@ export default function ProjectSidebar() {
       {/* ── New Project button ──────────────────────────────────────────── */}
       <div className="px-2 py-2">
         <button
-          onClick={createProject}
+          onClick={() => { createProject(); onRequestClose?.(); }}
           title={t(lang, 'newProject')}
           className={`sidebar-new-btn ${isOpen ? 'sidebar-new-btn--open' : 'sidebar-new-btn--collapsed'}`}
         >
@@ -247,7 +247,7 @@ export default function ProjectSidebar() {
                 project={p}
                 isActive={p.id === currentProjectId}
                 isOpen={isOpen}
-                onSwitch={switchProject}
+                onSwitch={id => { switchProject(id); onRequestClose?.(); }}
                 onRename={renameProject}
                 onDelete={deleteProject}
                 onPin={togglePinProject}

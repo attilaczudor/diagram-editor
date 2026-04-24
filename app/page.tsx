@@ -5,6 +5,8 @@ import ChatPanel from '@/components/ChatPanel';
 import ProjectSidebar from '@/components/ProjectSidebar';
 import { Loader2 } from 'lucide-react';
 
+const MobileDrawer = dynamic(() => import('@/components/MobileDrawer'), { ssr: false });
+
 const DiagramCanvas = dynamic(() => import('@/components/DiagramCanvas'), {
   ssr: false,
   loading: () => (
@@ -37,9 +39,10 @@ export default function Home() {
         </main>
       </div>
 
-      {/* Mobile bottom sheet (chat) */}
+      {/* Mobile: bottom sheet (chat) + hamburger drawer (projects) */}
       <div className="md:hidden">
         <BottomSheet />
+        <MobileDrawer />
       </div>
     </div>
   );
