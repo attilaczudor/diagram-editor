@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Node, Edge } from '@xyflow/react';
-import { ChatMessage, Lang, ModelMode, Project } from '@/types';
+import { ChatMessage, CloudProvider, Lang, ModelMode, Project } from '@/types';
 import { storage } from '@/lib/storage';
 import { parseMermaid, ParseResult } from '@/lib/mermaid-parser';
 import { applyAutoLayout } from '@/lib/auto-layout';
@@ -32,14 +32,24 @@ interface AppContextValue {
   setLang: (l: Lang) => void;
   modelMode: ModelMode;
   setModelMode: (m: ModelMode) => void;
+  cloudProvider: CloudProvider;
+  setCloudProvider: (p: CloudProvider) => void;
   apiKey: string;
   setApiKey: (k: string) => void;
+  geminiModel: string;
+  setGeminiModel: (m: string) => void;
+  qwenApiKey: string;
+  setQwenApiKey: (k: string) => void;
+  qwenModel: string;
+  setQwenModel: (m: string) => void;
+  kimiApiKey: string;
+  setKimiApiKey: (k: string) => void;
+  kimiModel: string;
+  setKimiModel: (m: string) => void;
   ollamaModel: string;
   setOllamaModel: (m: string) => void;
   ollamaUrl: string;
   setOllamaUrl: (u: string) => void;
-  geminiModel: string;
-  setGeminiModel: (m: string) => void;
   preferredDiagramType: 'erd' | 'uml';
   setPreferredDiagramType: (t: 'erd' | 'uml') => void;
 
@@ -79,10 +89,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Settings
   const [lang, setLangState] = useState<Lang>('en');
   const [modelMode, setModelModeState] = useState<ModelMode>('cloud');
+  const [cloudProvider, setCloudProviderState] = useState<CloudProvider>('gemini');
   const [apiKey, setApiKeyState] = useState('');
+  const [geminiModel, setGeminiModelState] = useState('gemini-2.0-flash');
+  const [qwenApiKey, setQwenApiKeyState] = useState('');
+  const [qwenModel, setQwenModelState] = useState('qwen-max');
+  const [kimiApiKey, setKimiApiKeyState] = useState('');
+  const [kimiModel, setKimiModelState] = useState('moonshot-v1-32k');
   const [ollamaModel, setOllamaModelState] = useState('llama3');
   const [ollamaUrl, setOllamaUrlState] = useState('http://localhost:11434');
-  const [geminiModel, setGeminiModelState] = useState('gemini-2.0-flash');
   const [preferredDiagramType, setPreferredDiagramTypeState] = useState<'erd' | 'uml'>('erd');
 
   // Diagram state
@@ -109,10 +124,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Settings
     setLangState(storage.getLang());
     setModelModeState(storage.getModelMode());
+    setCloudProviderState(storage.getCloudProvider());
     setApiKeyState(storage.getApiKey());
+    setGeminiModelState(storage.getGeminiModel());
+    setQwenApiKeyState(storage.getQwenApiKey());
+    setQwenModelState(storage.getQwenModel());
+    setKimiApiKeyState(storage.getKimiApiKey());
+    setKimiModelState(storage.getKimiModel());
     setOllamaModelState(storage.getOllamaModel());
     setOllamaUrlState(storage.getOllamaUrl());
-    setGeminiModelState(storage.getGeminiModel());
     setPreferredDiagramTypeState(storage.getPreferredDiagramType());
 
     // Projects
@@ -223,13 +243,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setLang = useCallback((l: Lang) => { setLangState(l); storage.setLang(l); }, []);
   const setModelMode = useCallback((m: ModelMode) => { setModelModeState(m); storage.setModelMode(m); }, []);
+  const setCloudProvider = useCallback((p: CloudProvider) => { setCloudProviderState(p); storage.setCloudProvider(p); }, []);
   const setApiKey = useCallback((k: string) => {
     setApiKeyState(k);
     if (k) storage.setApiKey(k); else storage.removeApiKey();
   }, []);
+  const setGeminiModel = useCallback((m: string) => { setGeminiModelState(m); storage.setGeminiModel(m); }, []);
+  const setQwenApiKey = useCallback((k: string) => { setQwenApiKeyState(k); storage.setQwenApiKey(k); }, []);
+  const setQwenModel = useCallback((m: string) => { setQwenModelState(m); storage.setQwenModel(m); }, []);
+  const setKimiApiKey = useCallback((k: string) => { setKimiApiKeyState(k); storage.setKimiApiKey(k); }, []);
+  const setKimiModel = useCallback((m: string) => { setKimiModelState(m); storage.setKimiModel(m); }, []);
   const setOllamaModel = useCallback((m: string) => { setOllamaModelState(m); storage.setOllamaModel(m); }, []);
   const setOllamaUrl = useCallback((u: string) => { setOllamaUrlState(u); storage.setOllamaUrl(u); }, []);
-  const setGeminiModel = useCallback((m: string) => { setGeminiModelState(m); storage.setGeminiModel(m); }, []);
   const setPreferredDiagramType = useCallback((type: 'erd' | 'uml') => {
     setPreferredDiagramTypeState(type);
     storage.setPreferredDiagramType(type);
@@ -376,10 +401,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const value: AppContextValue = {
     lang, setLang,
     modelMode, setModelMode,
+    cloudProvider, setCloudProvider,
     apiKey, setApiKey,
+    geminiModel, setGeminiModel,
+    qwenApiKey, setQwenApiKey,
+    qwenModel, setQwenModel,
+    kimiApiKey, setKimiApiKey,
+    kimiModel, setKimiModel,
     ollamaModel, setOllamaModel,
     ollamaUrl, setOllamaUrl,
-    geminiModel, setGeminiModel,
     preferredDiagramType, setPreferredDiagramType,
     nodes, setNodes,
     edges, setEdges,

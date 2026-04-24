@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Cloud,
   Copy,
+  Cpu,
   Database,
   Eye,
   EyeOff,
@@ -15,7 +16,6 @@ import {
   Languages,
   Loader2,
   MessageSquare,
-  Cpu,
   Send,
   Settings2,
   Share2,
@@ -26,9 +26,7 @@ import {
 import { useApp } from '@/context/AppContext';
 import { t } from '@/lib/i18n';
 import { generateDiagram } from '@/lib/ai-client';
-import { ChatMessage, Lang } from '@/types';
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
+import { ChatMessage, CloudProvider, Lang } from '@/types';
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
@@ -58,26 +56,27 @@ function MessageBubble({ msg, lang }: { msg: ChatMessage; lang: Lang }) {
             <span>{t(lang, 'assistant')}</span>
           </div>
         )}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-
+        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
         {msg.mermaidCode && (
           <div className="mt-2">
             <button
-              onClick={() => setExpanded((v) => !v)}
-              className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              onClick={() => setExpanded(v => !v)}
+              className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors"
             >
-              {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
               {t(lang, 'mermaidCode')}
             </button>
             {expanded && (
-              <div className="relative mt-1.5 rounded-md bg-gray-900 border border-gray-700 p-2 overflow-x-auto">
+              <div className="mt-1.5 relative">
+                <pre className="text-[10px] bg-gray-900 rounded-lg p-2.5 overflow-x-auto text-gray-300 leading-relaxed max-h-48">
+                  {msg.mermaidCode}
+                </pre>
                 <button
                   onClick={copyCode}
-                  className="absolute top-1.5 right-1.5 p-1 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-all"
+                  className="absolute top-1.5 right-1.5 p-1 rounded text-gray-500 hover:text-gray-300 hover:bg-gray-700 transition-all"
                 >
-                  {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                  {copied ? <Check size={11} /> : <Copy size={11} />}
                 </button>
-                <pre className="text-xs text-gray-300 font-mono leading-relaxed pr-6">{msg.mermaidCode}</pre>
               </div>
             )}
           </div>
@@ -90,30 +89,38 @@ function MessageBubble({ msg, lang }: { msg: ChatMessage; lang: Lang }) {
   );
 }
 
-// ─── API Key Section ─────────────────────────────────────────────────────────
+// ─── API Key Section (provider-aware) ────────────────────────────────────────
+
+const PROVIDER_LABELS: Record<CloudProvider, string> = {
+  gemini: 'Gemini API Key',
+  qwen: 'DashScope API Key',
+  kimi: 'Moonshot API Key',
+};
 
 function ApiKeySection({ lang }: { lang: Lang }) {
-  const { apiKey, setApiKey, modelMode } = useApp();
+  const { modelMode, cloudProvider, apiKey, setApiKey, qwenApiKey, setQwenApiKey, kimiApiKey, setKimiApiKey } = useApp();
   const [draft, setDraft] = useState('');
   const [show, setShow] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const currentKey = cloudProvider === 'gemini' ? apiKey : cloudProvider === 'qwen' ? qwenApiKey : kimiApiKey;
+  const setCurrentKey = cloudProvider === 'gemini' ? setApiKey : cloudProvider === 'qwen' ? setQwenApiKey : setKimiApiKey;
+
   useEffect(() => {
-    if (apiKey) setDraft(apiKey);
-  }, [apiKey]);
+    setDraft(currentKey);
+    setSaved(false);
+  }, [currentKey, cloudProvider]);
 
   const save = () => {
-    if (draft.trim()) {
-      setApiKey(draft.trim());
+    const trimmed = draft.trim();
+    if (trimmed) {
+      setCurrentKey(trimmed);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     }
   };
 
-  const remove = () => {
-    setApiKey('');
-    setDraft('');
-  };
+  const remove = () => { setCurrentKey(''); setDraft(''); };
 
   if (modelMode === 'local') return null;
 
@@ -121,24 +128,23 @@ function ApiKeySection({ lang }: { lang: Lang }) {
     <div className="p-3 border-b border-gray-800">
       <div className="flex items-center gap-2 mb-2">
         <Key size={13} className="text-yellow-400" />
-        <span className="text-xs font-medium text-gray-300">Gemini API Key</span>
-        {apiKey && <span className="ml-auto text-[10px] text-green-400">● Active</span>}
+        <span className="text-xs font-medium text-gray-300">{PROVIDER_LABELS[cloudProvider]}</span>
+        {currentKey && <span className="ml-auto text-[10px] text-green-400">● Active</span>}
       </div>
-
-      {!apiKey ? (
+      {!currentKey ? (
         <>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
                 type={show ? 'text' : 'password'}
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && save()}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && save()}
                 placeholder={t(lang, 'apiKeyPlaceholder')}
                 className="input-field w-full pr-8 text-xs"
               />
               <button
-                onClick={() => setShow((v) => !v)}
+                onClick={() => setShow(v => !v)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
               >
                 {show ? <EyeOff size={13} /> : <Eye size={13} />}
@@ -153,7 +159,7 @@ function ApiKeySection({ lang }: { lang: Lang }) {
       ) : (
         <div className="flex items-center gap-2">
           <span className="flex-1 text-xs text-gray-500 font-mono truncate">
-            {'•'.repeat(16)} {apiKey.slice(-4)}
+            {'•'.repeat(16)} {currentKey.slice(-4)}
           </span>
           <button onClick={remove} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
             <X size={12} /> {t(lang, 'apiKeyRemove')}
@@ -164,11 +170,12 @@ function ApiKeySection({ lang }: { lang: Lang }) {
   );
 }
 
-// ─── Settings Bar ────────────────────────────────────────────────────────────
+// ─── Settings Bar ─────────────────────────────────────────────────────────────
 
 function SettingsBar({ lang }: { lang: Lang }) {
   const {
     modelMode, setModelMode,
+    cloudProvider, setCloudProvider,
     lang: appLang, setLang,
     ollamaModel, setOllamaModel,
     preferredDiagramType, setPreferredDiagramType,
@@ -177,25 +184,25 @@ function SettingsBar({ lang }: { lang: Lang }) {
 
   return (
     <div className="border-b border-gray-800">
-      {/* Row 1: model + language + settings gear */}
+      {/* Row 1: Cloud/Ollama tabs + language + gear */}
       <div className="flex items-center gap-1 px-3 py-2">
         <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-xs">
           <button
             onClick={() => setModelMode('cloud')}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 transition-all ${modelMode === 'cloud' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            <Cloud size={12} /> {t(lang, 'cloud')}
+            <Cloud size={12} /> Cloud
           </button>
           <button
             onClick={() => setModelMode('local')}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 transition-all ${modelMode === 'local' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            <Cpu size={12} /> {t(lang, 'local')}
+            <Cpu size={12} /> Ollama
           </button>
         </div>
 
         <div className="ml-auto flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-xs">
-          {(['en', 'hu'] as Lang[]).map((l) => (
+          {(['en', 'hu'] as Lang[]).map(l => (
             <button
               key={l}
               onClick={() => setLang(l)}
@@ -207,14 +214,42 @@ function SettingsBar({ lang }: { lang: Lang }) {
         </div>
 
         <button
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen(v => !v)}
           className={`ml-1 p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all ${open ? 'bg-gray-700 text-white' : ''}`}
         >
           <Settings2 size={14} />
         </button>
       </div>
 
-      {/* Row 2: diagram type selector */}
+      {/* Row 2: Cloud provider select (cloud mode) or Ollama model (local + open) */}
+      {modelMode === 'cloud' && (
+        <div className="px-3 pb-2">
+          <select
+            value={cloudProvider}
+            onChange={e => setCloudProvider(e.target.value as CloudProvider)}
+            className="input-field w-full text-xs py-1.5"
+          >
+            <option value="gemini">Gemini (Google)</option>
+            <option value="qwen">Qwen (Alibaba Cloud)</option>
+            <option value="kimi">Kimi (Moonshot AI)</option>
+          </select>
+        </div>
+      )}
+
+      {open && modelMode === 'local' && (
+        <div className="px-3 pb-3">
+          <label className="text-xs text-gray-400 mb-1 block">{t(lang, 'ollamaModel')}</label>
+          <input
+            type="text"
+            value={ollamaModel}
+            onChange={e => setOllamaModel(e.target.value)}
+            placeholder={t(lang, 'ollamaModelPlaceholder')}
+            className="input-field w-full text-xs"
+          />
+        </div>
+      )}
+
+      {/* Row 3: Diagram type */}
       <div className="px-3 pb-2.5">
         <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-xs">
           <button
@@ -231,24 +266,11 @@ function SettingsBar({ lang }: { lang: Lang }) {
           </button>
         </div>
       </div>
-
-      {open && modelMode === 'local' && (
-        <div className="px-3 pb-3">
-          <label className="text-xs text-gray-400 mb-1 block">{t(lang, 'ollamaModel')}</label>
-          <input
-            type="text"
-            value={ollamaModel}
-            onChange={(e) => setOllamaModel(e.target.value)}
-            placeholder={t(lang, 'ollamaModelPlaceholder')}
-            className="input-field w-full text-xs"
-          />
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── Example prompts ─────────────────────────────────────────────────────────
+// ─── Example prompts ──────────────────────────────────────────────────────────
 
 function ExamplePrompts({ onSelect, lang }: { onSelect: (p: string) => void; lang: Lang }) {
   const examples = [t(lang, 'example1'), t(lang, 'example2'), t(lang, 'example3')];
@@ -277,14 +299,19 @@ function ExamplePrompts({ onSelect, lang }: { onSelect: (p: string) => void; lan
   );
 }
 
-// ─── Main ChatPanel ──────────────────────────────────────────────────────────
+// ─── Main ChatPanel ───────────────────────────────────────────────────────────
 
 export default function ChatPanel() {
   const {
     lang,
     modelMode,
+    cloudProvider,
     apiKey,
     geminiModel,
+    qwenApiKey,
+    qwenModel,
+    kimiApiKey,
+    kimiModel,
     ollamaModel,
     ollamaUrl,
     preferredDiagramType,
@@ -301,18 +328,18 @@ export default function ChatPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isGenerating]);
 
-  // Auto-grow textarea
   const adjustHeight = () => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   };
+
+  const activeCloudKey = cloudProvider === 'gemini' ? apiKey : cloudProvider === 'qwen' ? qwenApiKey : kimiApiKey;
 
   const send = useCallback(async (promptOverride?: string) => {
     const prompt = (promptOverride ?? input).trim();
@@ -321,22 +348,21 @@ export default function ChatPanel() {
     setInput('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-    const userMsg: ChatMessage = {
-      id: generateId(),
-      role: 'user',
-      content: prompt,
-      timestamp: Date.now(),
-    };
-
-    setChatHistory((h) => [...h, userMsg]);
+    const userMsg: ChatMessage = { id: generateId(), role: 'user', content: prompt, timestamp: Date.now() };
+    setChatHistory(h => [...h, userMsg]);
     setIsGenerating(true);
 
     try {
       const code = await generateDiagram({
         prompt,
         model: modelMode,
+        cloudProvider,
         apiKey,
         geminiModel,
+        qwenApiKey,
+        qwenModel,
+        kimiApiKey,
+        kimiModel,
         ollamaModel,
         ollamaUrl,
         language: lang,
@@ -345,10 +371,9 @@ export default function ChatPanel() {
       });
 
       applyMermaid(code, true);
-
       const nodeCount = (code.match(/^\s*\w[\w-]*\s*\{/gm) ?? []).length;
 
-      setChatHistory((h) => [
+      setChatHistory(h => [
         ...h,
         {
           id: generateId(),
@@ -360,32 +385,23 @@ export default function ChatPanel() {
       ]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Network error';
-      setChatHistory((h) => [
+      setChatHistory(h => [
         ...h,
-        {
-          id: generateId(),
-          role: 'assistant',
-          content: `${t(lang, 'error')}: ${msg}`,
-          timestamp: Date.now(),
-          error: true,
-        },
+        { id: generateId(), role: 'assistant', content: msg, timestamp: Date.now(), error: true },
       ]);
     } finally {
       setIsGenerating(false);
     }
-  }, [input, isGenerating, modelMode, apiKey, geminiModel, ollamaModel, lang, mermaidCode, applyMermaid, setChatHistory, setIsGenerating]);
+  }, [input, isGenerating, modelMode, cloudProvider, apiKey, geminiModel, qwenApiKey, qwenModel, kimiApiKey, kimiModel, ollamaModel, ollamaUrl, lang, mermaidCode, applyMermaid, setChatHistory, setIsGenerating, preferredDiagramType]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
   const canSend = Boolean(
     input.trim() &&
     !isGenerating &&
-    (modelMode === 'local' || apiKey)
+    (modelMode === 'local' || activeCloudKey)
   );
 
   return (
@@ -405,27 +421,21 @@ export default function ChatPanel() {
         )}
       </div>
 
-      {/* Settings bar */}
       <SettingsBar lang={lang} />
-
-      {/* API Key */}
       <ApiKeySection lang={lang} />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4 scroll-smooth">
         {chatHistory.length === 0 ? (
-          <ExamplePrompts onSelect={(p) => send(p)} lang={lang} />
+          <ExamplePrompts onSelect={p => send(p)} lang={lang} />
         ) : (
           <>
-            {chatHistory.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} lang={lang} />
-            ))}
+            {chatHistory.map(msg => <MessageBubble key={msg.id} msg={msg} lang={lang} />)}
             {isGenerating && (
               <div className="flex items-start gap-2">
                 <div className="chat-bubble chat-bubble--assistant">
                   <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                    <Bot size={11} />
-                    <span>{t(lang, 'assistant')}</span>
+                    <Bot size={11} /><span>{t(lang, 'assistant')}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1.5">
                     <Loader2 size={13} className="animate-spin text-indigo-400" />
@@ -441,16 +451,16 @@ export default function ChatPanel() {
 
       {/* Input */}
       <div className="p-3 border-t border-gray-800 shrink-0">
-        {modelMode === 'cloud' && !apiKey && (
+        {modelMode === 'cloud' && !activeCloudKey && (
           <p className="text-[10px] text-yellow-500/80 mb-2 flex items-center gap-1">
-            <Key size={10} /> Add your Gemini API key above to start.
+            <Key size={10} /> Add your API key above to start.
           </p>
         )}
         <div className="flex gap-2 items-end">
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => { setInput(e.target.value); adjustHeight(); }}
+            onChange={e => { setInput(e.target.value); adjustHeight(); }}
             onKeyDown={handleKeyDown}
             placeholder={t(lang, 'chatPlaceholder')}
             rows={1}
@@ -463,13 +473,10 @@ export default function ChatPanel() {
             disabled={!canSend}
             className="btn-primary p-2.5 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isGenerating
-              ? <Loader2 size={15} className="animate-spin" />
-              : <Send size={15} />
-            }
+            {isGenerating ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           </button>
         </div>
-        <p className="text-[10px] text-gray-700 mt-1.5">Shift+Enter for new line · Enter to send</p>
+        <p className="text-[10px] text-gray-600 mt-1.5">Shift+Enter for new line · Enter to send</p>
       </div>
     </div>
   );

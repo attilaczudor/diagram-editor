@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { CloudProvider } from '@/types';
 
 const SYSTEM_INSTRUCTION = `You are an expert diagram architect. Your ONLY output is valid Mermaid.js code.
 
@@ -43,12 +44,11 @@ function validateMermaid(code: string): boolean {
 
 function parseGeminiError(err: unknown): Error {
   const msg = err instanceof Error ? err.message : String(err);
-  // 429 quota exceeded
   if (msg.includes('429') || msg.includes('quota')) {
     const retryMatch = msg.match(/retry in ([\d.]+)s/i);
     const seconds = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : null;
     const suffix = seconds ? ` Try again in ${seconds}s.` : ' Try again later.';
-    return new Error(`Gemini quota exceeded.${suffix} Upgrade your plan at ai.google.dev or switch to a local model in Settings.`);
+    return new Error(`Gemini quota exceeded.${suffix} Switch to a different model in Settings.`);
   }
   if (msg.includes('API_KEY') || msg.includes('401') || msg.includes('403')) {
     return new Error('Invalid Gemini API key. Check your key in Settings.');
@@ -56,31 +56,60 @@ function parseGeminiError(err: unknown): Error {
   return err instanceof Error ? err : new Error(msg);
 }
 
-async function tryGeminiModel(
-  modelName: string,
-  genAI: GoogleGenerativeAI,
-  userMessage: string
-): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: modelName, systemInstruction: SYSTEM_INSTRUCTION });
-  const result = await model.generateContent(userMessage);
-  return stripCodeFences(result.response.text().trim());
-}
-
 async function generateWithGemini(
-  prompt: string,
-  previousMermaid: string,
+  userMessage: string,
   apiKey: string,
-  language: string,
-  preferredType: 'erd' | 'uml',
   geminiModel: string
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const userMessage = buildUserMessage(prompt, previousMermaid, language, preferredType);
+  const model = genAI.getGenerativeModel({ model: geminiModel, systemInstruction: SYSTEM_INSTRUCTION });
   try {
-    return await tryGeminiModel(geminiModel, genAI, userMessage);
+    const result = await model.generateContent(userMessage);
+    return stripCodeFences(result.response.text().trim());
   } catch (err) {
     throw parseGeminiError(err);
   }
+}
+
+async function generateWithOpenAICompat(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  userMessage: string,
+  providerName: string
+): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: SYSTEM_INSTRUCTION },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.3,
+      }),
+    });
+  } catch {
+    throw new Error(`${providerName}: network error. Check your connection.`);
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+    const detail = body?.error?.message ?? `${res.status} ${res.statusText}`;
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(`Invalid ${providerName} API key. Check your key in Settings.`);
+    }
+    if (res.status === 429) {
+      throw new Error(`${providerName} quota exceeded. Try again later or upgrade your plan.`);
+    }
+    throw new Error(`${providerName} error: ${detail}`);
+  }
+
+  const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+  return stripCodeFences(data.choices[0].message.content.trim());
 }
 
 async function generateWithOllama(
@@ -93,11 +122,16 @@ async function generateWithOllama(
 ): Promise<string> {
   const base = ollamaUrl.replace(/\/$/, '');
   const fullPrompt = `${SYSTEM_INSTRUCTION}\n\n${buildUserMessage(prompt, previousMermaid, language, preferredType)}`;
-  const response = await fetch(`${base}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: ollamaModel || 'llama3', prompt: fullPrompt, stream: false }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${base}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: ollamaModel || 'llama3', prompt: fullPrompt, stream: false }),
+    });
+  } catch {
+    throw new Error('Cannot reach Ollama. Ensure it is running with OLLAMA_ORIGINS=* and the URL is correct in Settings.');
+  }
   if (!response.ok) {
     throw new Error(
       `Ollama error: ${response.status} ${response.statusText}. Ensure Ollama is running with OLLAMA_ORIGINS=* and the URL is correct in Settings.`
@@ -110,8 +144,13 @@ async function generateWithOllama(
 export async function generateDiagram(params: {
   prompt: string;
   model: 'cloud' | 'local';
+  cloudProvider?: CloudProvider;
   apiKey?: string;
   geminiModel?: string;
+  qwenApiKey?: string;
+  qwenModel?: string;
+  kimiApiKey?: string;
+  kimiModel?: string;
   ollamaModel?: string;
   ollamaUrl?: string;
   language: string;
@@ -121,9 +160,14 @@ export async function generateDiagram(params: {
   const {
     prompt,
     model,
-    apiKey,
+    cloudProvider = 'gemini',
+    apiKey = '',
     geminiModel = 'gemini-2.0-flash',
-    ollamaModel,
+    qwenApiKey = '',
+    qwenModel = 'qwen-max',
+    kimiApiKey = '',
+    kimiModel = 'moonshot-v1-32k',
+    ollamaModel = 'llama3',
     ollamaUrl = 'http://localhost:11434',
     language,
     previousMermaid = '',
@@ -132,15 +176,33 @@ export async function generateDiagram(params: {
 
   if (!prompt.trim()) throw new Error('Prompt is required.');
 
-  const code =
-    model === 'cloud'
-      ? await generateWithGemini(prompt, previousMermaid, apiKey ?? '', language, preferredDiagramType, geminiModel)
-      : await generateWithOllama(prompt, previousMermaid, ollamaModel ?? 'llama3', language, preferredDiagramType, ollamaUrl);
+  const userMessage = buildUserMessage(prompt, previousMermaid, language, preferredDiagramType);
+
+  let code: string;
+  if (model === 'local') {
+    code = await generateWithOllama(prompt, previousMermaid, ollamaModel, language, preferredDiagramType, ollamaUrl);
+  } else if (cloudProvider === 'qwen') {
+    code = await generateWithOpenAICompat(
+      'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      qwenApiKey,
+      qwenModel,
+      userMessage,
+      'Qwen'
+    );
+  } else if (cloudProvider === 'kimi') {
+    code = await generateWithOpenAICompat(
+      'https://api.moonshot.cn/v1',
+      kimiApiKey,
+      kimiModel,
+      userMessage,
+      'Kimi'
+    );
+  } else {
+    code = await generateWithGemini(userMessage, apiKey, geminiModel);
+  }
 
   if (!validateMermaid(code)) {
-    throw new Error(
-      'The AI did not return valid Mermaid code. Please try again with a more specific prompt.'
-    );
+    throw new Error('The AI did not return valid Mermaid code. Please try again with a more specific prompt.');
   }
 
   return code;

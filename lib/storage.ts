@@ -1,13 +1,18 @@
-import { ChatMessage, Lang, ModelMode, Project } from '@/types';
+import { ChatMessage, CloudProvider, Lang, ModelMode, Project } from '@/types';
 import { Node, Edge } from '@xyflow/react';
 
 const KEYS = {
   // Settings
   API_KEY: 'gemini_api_key',
   MODEL_MODE: 'diagram_model_mode',
+  CLOUD_PROVIDER: 'diagram_cloud_provider',
+  GEMINI_MODEL: 'diagram_gemini_model',
+  QWEN_API_KEY: 'qwen_api_key',
+  QWEN_MODEL: 'diagram_qwen_model',
+  KIMI_API_KEY: 'kimi_api_key',
+  KIMI_MODEL: 'diagram_kimi_model',
   OLLAMA_MODEL: 'diagram_ollama_model',
   OLLAMA_URL: 'diagram_ollama_url',
-  GEMINI_MODEL: 'diagram_gemini_model',
   LANGUAGE: 'diagram_language',
   PREFERRED_DIAGRAM_TYPE: 'diagram_preferred_type',
   // Projects
@@ -45,14 +50,29 @@ export const storage = {
   getModelMode: (): ModelMode => safeGet<ModelMode>(KEYS.MODEL_MODE, 'cloud'),
   setModelMode: (m: ModelMode) => safeSet(KEYS.MODEL_MODE, m),
 
+  getCloudProvider: (): CloudProvider => safeGet<CloudProvider>(KEYS.CLOUD_PROVIDER, 'gemini'),
+  setCloudProvider: (p: CloudProvider) => safeSet(KEYS.CLOUD_PROVIDER, p),
+
+  getGeminiModel: (): string => safeGet<string>(KEYS.GEMINI_MODEL, 'gemini-2.0-flash'),
+  setGeminiModel: (m: string) => safeSet(KEYS.GEMINI_MODEL, m),
+
+  getQwenApiKey: (): string => { try { return localStorage.getItem(KEYS.QWEN_API_KEY) ?? ''; } catch { return ''; } },
+  setQwenApiKey: (k: string) => { try { if (k) localStorage.setItem(KEYS.QWEN_API_KEY, k); else localStorage.removeItem(KEYS.QWEN_API_KEY); } catch { /* noop */ } },
+
+  getQwenModel: (): string => safeGet<string>(KEYS.QWEN_MODEL, 'qwen-max'),
+  setQwenModel: (m: string) => safeSet(KEYS.QWEN_MODEL, m),
+
+  getKimiApiKey: (): string => { try { return localStorage.getItem(KEYS.KIMI_API_KEY) ?? ''; } catch { return ''; } },
+  setKimiApiKey: (k: string) => { try { if (k) localStorage.setItem(KEYS.KIMI_API_KEY, k); else localStorage.removeItem(KEYS.KIMI_API_KEY); } catch { /* noop */ } },
+
+  getKimiModel: (): string => safeGet<string>(KEYS.KIMI_MODEL, 'moonshot-v1-32k'),
+  setKimiModel: (m: string) => safeSet(KEYS.KIMI_MODEL, m),
+
   getOllamaModel: (): string => safeGet<string>(KEYS.OLLAMA_MODEL, 'llama3'),
   setOllamaModel: (m: string) => safeSet(KEYS.OLLAMA_MODEL, m),
 
   getOllamaUrl: (): string => safeGet<string>(KEYS.OLLAMA_URL, 'http://localhost:11434'),
   setOllamaUrl: (u: string) => safeSet(KEYS.OLLAMA_URL, u),
-
-  getGeminiModel: (): string => safeGet<string>(KEYS.GEMINI_MODEL, 'gemini-2.0-flash'),
-  setGeminiModel: (m: string) => safeSet(KEYS.GEMINI_MODEL, m),
 
   getLang: (): Lang => safeGet<Lang>(KEYS.LANGUAGE, 'en'),
   setLang: (l: Lang) => safeSet(KEYS.LANGUAGE, l),

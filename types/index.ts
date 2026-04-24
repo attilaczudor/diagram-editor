@@ -2,6 +2,7 @@ import type { Node, Edge } from '@xyflow/react';
 
 export type Lang = 'en' | 'hu';
 export type ModelMode = 'cloud' | 'local';
+export type CloudProvider = 'gemini' | 'qwen' | 'kimi';
 export type DiagramType = 'erd' | 'uml' | 'unknown';
 
 export interface ChatMessage {
