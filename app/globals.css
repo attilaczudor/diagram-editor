@@ -1,0 +1,294 @@
+@import "tailwindcss";
+
+/* ── React Flow overrides ─────────────────────────────────────────────────── */
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.react-flow__node:hover .react-flow__handle,
+.react-flow__node.selected .react-flow__handle {
+  opacity: 1;
+}
+.react-flow__controls-button {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #9ca3af !important;
+  fill: #9ca3af !important;
+}
+.react-flow__controls-button:hover {
+  background: #374151 !important;
+  color: #f9fafb !important;
+  fill: #f9fafb !important;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #__next {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #080b14;
+  color: #e5e7eb;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Input field ──────────────────────────────────────────────────────────── */
+.input-field {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: #e5e7eb;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-field::placeholder {
+  color: #4b5563;
+}
+.input-field:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
+.input-field:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  background: #4f46e5;
+  color: #fff;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  padding: 0.5rem 1rem;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ── Chat bubbles ─────────────────────────────────────────────────────────── */
+.chat-bubble {
+  max-width: 88%;
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  line-height: 1.5;
+}
+.chat-bubble--user {
+  background: #312e81;
+  color: #e0e7ff;
+  border-bottom-right-radius: 0.25rem;
+}
+.chat-bubble--assistant {
+  background: #1f2937;
+  color: #d1d5db;
+  border: 1px solid #374151;
+  border-bottom-left-radius: 0.25rem;
+}
+.chat-bubble--error {
+  background: #450a0a;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* ── ERD Node ─────────────────────────────────────────────────────────────── */
+.erd-node {
+  background: #0f172a;
+  border: 1.5px solid #312e81;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.erd-node--selected,
+.erd-node:hover {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25), 0 4px 24px rgba(0,0,0,0.5);
+}
+.erd-node__header {
+  background: #1e1b4b;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #312e81;
+}
+.erd-node__title {
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a5b4fc;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+}
+.erd-node__body {
+  padding: 0.25rem 0;
+}
+.erd-node__row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.7rem;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  border-bottom: 1px solid #1e293b;
+  transition: background 0.1s ease;
+}
+.erd-node__row:last-child {
+  border-bottom: none;
+}
+.erd-node__row:hover {
+  background: #172033;
+}
+.erd-node__row--pk {
+  background: rgba(234, 179, 8, 0.05);
+}
+.erd-node__row--fk {
+  background: rgba(59, 130, 246, 0.05);
+}
+.erd-node__row-icon {
+  width: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.erd-node__row-type {
+  color: #60a5fa;
+  font-style: italic;
+  min-width: 60px;
+}
+.erd-node__row-name {
+  color: #e2e8f0;
+  flex: 1;
+}
+.erd-node__row-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0 0.25rem;
+  border-radius: 0.2rem;
+  background: #374151;
+  color: #9ca3af;
+}
+
+/* ── UML Node ─────────────────────────────────────────────────────────────── */
+.uml-node {
+  background: #0c1a2e;
+  border: 1.5px solid #1e3a5f;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.uml-node--selected,
+.uml-node:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 4px 24px rgba(0,0,0,0.5);
+}
+.uml-node--interface {
+  border-color: #134e4a;
+}
+.uml-node--interface .uml-node__header {
+  background: #042f2e;
+}
+.uml-node__header {
+  background: #0c2a4a;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #1e3a5f;
+  text-align: center;
+}
+.uml-node__stereotype {
+  font-size: 0.6rem;
+  color: #60a5fa;
+  font-style: italic;
+  margin-bottom: 0.125rem;
+}
+.uml-node__title {
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #93c5fd;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+}
+.uml-node__section {
+  padding: 0.25rem 0;
+  min-height: 28px;
+}
+.uml-node__divider {
+  height: 1px;
+  background: #1e3a5f;
+}
+.uml-node__row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.225rem 0.75rem;
+  font-size: 0.7rem;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  color: #cbd5e1;
+  transition: background 0.1s ease;
+}
+.uml-node__row:hover {
+  background: #0f2444;
+}
+.uml-node__visibility {
+  color: #64748b;
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.uml-node__type {
+  color: #60a5fa;
+  font-style: italic;
+  margin-right: 0.125rem;
+}
+.uml-node__name {
+  color: #e2e8f0;
+}
+.uml-node__params {
+  color: #64748b;
+  font-size: 0.65rem;
+}
+.uml-node__return {
+  color: #60a5fa;
+  font-size: 0.65rem;
+}
+.uml-node__empty {
+  padding: 0.2rem 0.75rem;
+  font-size: 0.65rem;
+  color: #374151;
+  font-family: ui-monospace, monospace;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
