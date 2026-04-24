@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { t } from '@/lib/i18n';
+import { generateDiagram } from '@/lib/ai-client';
 import { ChatMessage, Lang } from '@/types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -305,36 +306,15 @@ export default function ChatPanel() {
     setIsGenerating(true);
 
     try {
-      const res = await fetch('/api/generate-diagram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          model: modelMode,
-          apiKey,
-          ollamaModel,
-          language: lang,
-          previousMermaid: mermaidCode,
-        }),
+      const code = await generateDiagram({
+        prompt,
+        model: modelMode,
+        apiKey,
+        ollamaModel,
+        language: lang,
+        previousMermaid: mermaidCode,
       });
 
-      const data = (await res.json()) as { mermaidCode?: string; error?: string };
-
-      if (!res.ok || data.error) {
-        setChatHistory((h) => [
-          ...h,
-          {
-            id: generateId(),
-            role: 'assistant',
-            content: `${t(lang, 'error')}: ${data.error ?? 'Unknown error'}`,
-            timestamp: Date.now(),
-            error: true,
-          },
-        ]);
-        return;
-      }
-
-      const code = data.mermaidCode!;
       applyMermaid(code, true);
 
       const nodeCount = (code.match(/^\s*\w[\w-]*\s*\{/gm) ?? []).length;
