@@ -12,15 +12,21 @@ STRICT RULES:
 7. If the user provides existing Mermaid code to refine, output the COMPLETE updated diagram.
 8. Never truncate the output — include every entity/class.`;
 
-function buildUserMessage(prompt: string, previousMermaid: string, language: string): string {
+function buildUserMessage(
+  prompt: string,
+  previousMermaid: string,
+  language: string,
+  preferredType: 'erd' | 'uml'
+): string {
   const langNote =
     language === 'hu'
       ? ' (The user writes in Hungarian but entity/class names must still be in English.)'
       : '';
+  const typeKeyword = preferredType === 'erd' ? 'erDiagram' : 'classDiagram';
   if (previousMermaid.trim()) {
     return `Existing diagram code to modify:\n\`\`\`\n${previousMermaid}\n\`\`\`\n\nUser request${langNote}: ${prompt}`;
   }
-  return `Create a diagram${langNote}: ${prompt}`;
+  return `Create a ${typeKeyword}${langNote}: ${prompt}`;
 }
 
 function stripCodeFences(text: string): string {
@@ -39,14 +45,15 @@ async function generateWithGemini(
   prompt: string,
   previousMermaid: string,
   apiKey: string,
-  language: string
+  language: string,
+  preferredType: 'erd' | 'uml'
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.0-flash',
     systemInstruction: SYSTEM_INSTRUCTION,
   });
-  const result = await model.generateContent(buildUserMessage(prompt, previousMermaid, language));
+  const result = await model.generateContent(buildUserMessage(prompt, previousMermaid, language, preferredType));
   return stripCodeFences(result.response.text().trim());
 }
 
@@ -54,9 +61,10 @@ async function generateWithOllama(
   prompt: string,
   previousMermaid: string,
   ollamaModel: string,
-  language: string
+  language: string,
+  preferredType: 'erd' | 'uml'
 ): Promise<string> {
-  const fullPrompt = `${SYSTEM_INSTRUCTION}\n\n${buildUserMessage(prompt, previousMermaid, language)}`;
+  const fullPrompt = `${SYSTEM_INSTRUCTION}\n\n${buildUserMessage(prompt, previousMermaid, language, preferredType)}`;
   const response = await fetch('http://localhost:11434/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -76,15 +84,16 @@ export async function generateDiagram(params: {
   ollamaModel?: string;
   language: string;
   previousMermaid?: string;
+  preferredDiagramType?: 'erd' | 'uml';
 }): Promise<string> {
-  const { prompt, model, apiKey, ollamaModel, language, previousMermaid = '' } = params;
+  const { prompt, model, apiKey, ollamaModel, language, previousMermaid = '', preferredDiagramType = 'erd' } = params;
 
   if (!prompt.trim()) throw new Error('Prompt is required.');
 
   const code =
     model === 'cloud'
-      ? await generateWithGemini(prompt, previousMermaid, apiKey ?? '', language)
-      : await generateWithOllama(prompt, previousMermaid, ollamaModel ?? 'llama3', language);
+      ? await generateWithGemini(prompt, previousMermaid, apiKey ?? '', language, preferredDiagramType)
+      : await generateWithOllama(prompt, previousMermaid, ollamaModel ?? 'llama3', language, preferredDiagramType);
 
   if (!validateMermaid(code)) {
     throw new Error(

@@ -38,6 +38,10 @@ export const dict = {
     newDiagram: 'New Diagram',
     erd: 'ERD',
     uml: 'UML Class',
+    diagramTypeLabel: 'Diagram Type',
+    erdDiagram: 'ERD Diagram',
+    umlDiagram: 'UML Class Diagram',
+    openChat: 'Open Chat',
   },
   hu: {
     title: 'Diagram Studio',
@@ -78,6 +82,10 @@ export const dict = {
     newDiagram: 'Új diagram',
     erd: 'ERD',
     uml: 'UML osztály',
+    diagramTypeLabel: 'Diagram típusa',
+    erdDiagram: 'ERD Diagram',
+    umlDiagram: 'UML Osztálydiagram',
+    openChat: 'Chat megnyitása',
   },
 } as const;
 

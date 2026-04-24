@@ -6,6 +6,7 @@ const KEYS = {
   MODEL_MODE: 'diagram_model_mode',
   OLLAMA_MODEL: 'diagram_ollama_model',
   LANGUAGE: 'diagram_language',
+  PREFERRED_DIAGRAM_TYPE: 'diagram_preferred_type',
   CHAT_HISTORY: 'diagram_chat_history',
   MERMAID_CODE: 'diagram_mermaid_code',
   NODES: 'diagram_nodes',
@@ -49,6 +50,9 @@ export const storage = {
 
   getLang: (): Lang => safeGet<Lang>(KEYS.LANGUAGE, 'en'),
   setLang: (l: Lang) => safeSet(KEYS.LANGUAGE, l),
+
+  getPreferredDiagramType: (): 'erd' | 'uml' => safeGet<'erd' | 'uml'>(KEYS.PREFERRED_DIAGRAM_TYPE, 'erd'),
+  setPreferredDiagramType: (t: 'erd' | 'uml') => safeSet(KEYS.PREFERRED_DIAGRAM_TYPE, t),
 
   getChatHistory: (): ChatMessage[] => safeGet<ChatMessage[]>(KEYS.CHAT_HISTORY, []),
   setChatHistory: (h: ChatMessage[]) => safeSet(KEYS.CHAT_HISTORY, h),

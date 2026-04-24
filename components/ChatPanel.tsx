@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Cloud,
   Copy,
+  Database,
   Eye,
   EyeOff,
   Key,
@@ -17,6 +18,7 @@ import {
   Cpu,
   Send,
   Settings2,
+  Share2,
   Sparkles,
   Trash2,
   X,
@@ -165,13 +167,18 @@ function ApiKeySection({ lang }: { lang: Lang }) {
 // ─── Settings Bar ────────────────────────────────────────────────────────────
 
 function SettingsBar({ lang }: { lang: Lang }) {
-  const { modelMode, setModelMode, lang: appLang, setLang, ollamaModel, setOllamaModel } = useApp();
+  const {
+    modelMode, setModelMode,
+    lang: appLang, setLang,
+    ollamaModel, setOllamaModel,
+    preferredDiagramType, setPreferredDiagramType,
+  } = useApp();
   const [open, setOpen] = useState(false);
 
   return (
     <div className="border-b border-gray-800">
+      {/* Row 1: model + language + settings gear */}
       <div className="flex items-center gap-1 px-3 py-2">
-        {/* Model toggle */}
         <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-xs">
           <button
             onClick={() => setModelMode('cloud')}
@@ -187,7 +194,6 @@ function SettingsBar({ lang }: { lang: Lang }) {
           </button>
         </div>
 
-        {/* Lang toggle */}
         <div className="ml-auto flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-xs">
           {(['en', 'hu'] as Lang[]).map((l) => (
             <button
@@ -200,13 +206,30 @@ function SettingsBar({ lang }: { lang: Lang }) {
           ))}
         </div>
 
-        {/* Settings icon */}
         <button
           onClick={() => setOpen((v) => !v)}
           className={`ml-1 p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-all ${open ? 'bg-gray-700 text-white' : ''}`}
         >
           <Settings2 size={14} />
         </button>
+      </div>
+
+      {/* Row 2: diagram type selector */}
+      <div className="px-3 pb-2.5">
+        <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-xs">
+          <button
+            onClick={() => setPreferredDiagramType('erd')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 transition-all font-medium ${preferredDiagramType === 'erd' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white'}`}
+          >
+            <Database size={11} /> {t(lang, 'erdDiagram')}
+          </button>
+          <button
+            onClick={() => setPreferredDiagramType('uml')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 transition-all font-medium ${preferredDiagramType === 'uml' ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-white'}`}
+          >
+            <Share2 size={11} /> {t(lang, 'umlDiagram')}
+          </button>
+        </div>
       </div>
 
       {open && modelMode === 'local' && (
@@ -262,6 +285,7 @@ export default function ChatPanel() {
     modelMode,
     apiKey,
     ollamaModel,
+    preferredDiagramType,
     chatHistory,
     setChatHistory,
     isGenerating,
@@ -313,6 +337,7 @@ export default function ChatPanel() {
         ollamaModel,
         language: lang,
         previousMermaid: mermaidCode,
+        preferredDiagramType,
       });
 
       applyMermaid(code, true);

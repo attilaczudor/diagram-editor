@@ -17,6 +17,8 @@ interface AppContextValue {
   setApiKey: (k: string) => void;
   ollamaModel: string;
   setOllamaModel: (m: string) => void;
+  preferredDiagramType: 'erd' | 'uml';
+  setPreferredDiagramType: (t: 'erd' | 'uml') => void;
 
   // Diagram state
   nodes: Node[];
@@ -46,6 +48,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [modelMode, setModelModeState] = useState<ModelMode>('cloud');
   const [apiKey, setApiKeyState] = useState('');
   const [ollamaModel, setOllamaModelState] = useState('llama3');
+  const [preferredDiagramType, setPreferredDiagramTypeState] = useState<'erd' | 'uml'>('erd');
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -65,6 +68,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setModelModeState(storage.getModelMode());
     setApiKeyState(storage.getApiKey());
     setOllamaModelState(storage.getOllamaModel());
+    setPreferredDiagramTypeState(storage.getPreferredDiagramType());
     setChatHistory(storage.getChatHistory());
 
     const savedCode = storage.getMermaidCode();
@@ -101,6 +105,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setOllamaModel = useCallback((m: string) => {
     setOllamaModelState(m);
     storage.setOllamaModel(m);
+  }, []);
+
+  const setPreferredDiagramType = useCallback((type: 'erd' | 'uml') => {
+    setPreferredDiagramTypeState(type);
+    storage.setPreferredDiagramType(type);
   }, []);
 
   const setMermaidCode = useCallback((code: string) => {
@@ -158,6 +167,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     modelMode, setModelMode,
     apiKey, setApiKey,
     ollamaModel, setOllamaModel,
+    preferredDiagramType, setPreferredDiagramType,
     nodes, setNodes,
     edges, setEdges,
     mermaidCode, setMermaidCode,
