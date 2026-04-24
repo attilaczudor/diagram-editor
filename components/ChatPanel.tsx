@@ -284,6 +284,7 @@ export default function ChatPanel() {
     lang,
     modelMode,
     apiKey,
+    geminiModel,
     ollamaModel,
     ollamaUrl,
     preferredDiagramType,
@@ -335,6 +336,7 @@ export default function ChatPanel() {
         prompt,
         model: modelMode,
         apiKey,
+        geminiModel,
         ollamaModel,
         ollamaUrl,
         language: lang,
@@ -371,7 +373,7 @@ export default function ChatPanel() {
     } finally {
       setIsGenerating(false);
     }
-  }, [input, isGenerating, modelMode, apiKey, ollamaModel, lang, mermaidCode, applyMermaid, setChatHistory, setIsGenerating]);
+  }, [input, isGenerating, modelMode, apiKey, geminiModel, ollamaModel, lang, mermaidCode, applyMermaid, setChatHistory, setIsGenerating]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

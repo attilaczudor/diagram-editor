@@ -38,6 +38,8 @@ interface AppContextValue {
   setOllamaModel: (m: string) => void;
   ollamaUrl: string;
   setOllamaUrl: (u: string) => void;
+  geminiModel: string;
+  setGeminiModel: (m: string) => void;
   preferredDiagramType: 'erd' | 'uml';
   setPreferredDiagramType: (t: 'erd' | 'uml') => void;
 
@@ -80,6 +82,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [apiKey, setApiKeyState] = useState('');
   const [ollamaModel, setOllamaModelState] = useState('llama3');
   const [ollamaUrl, setOllamaUrlState] = useState('http://localhost:11434');
+  const [geminiModel, setGeminiModelState] = useState('gemini-2.0-flash');
   const [preferredDiagramType, setPreferredDiagramTypeState] = useState<'erd' | 'uml'>('erd');
 
   // Diagram state
@@ -109,6 +112,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setApiKeyState(storage.getApiKey());
     setOllamaModelState(storage.getOllamaModel());
     setOllamaUrlState(storage.getOllamaUrl());
+    setGeminiModelState(storage.getGeminiModel());
     setPreferredDiagramTypeState(storage.getPreferredDiagramType());
 
     // Projects
@@ -225,6 +229,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const setOllamaModel = useCallback((m: string) => { setOllamaModelState(m); storage.setOllamaModel(m); }, []);
   const setOllamaUrl = useCallback((u: string) => { setOllamaUrlState(u); storage.setOllamaUrl(u); }, []);
+  const setGeminiModel = useCallback((m: string) => { setGeminiModelState(m); storage.setGeminiModel(m); }, []);
   const setPreferredDiagramType = useCallback((type: 'erd' | 'uml') => {
     setPreferredDiagramTypeState(type);
     storage.setPreferredDiagramType(type);
@@ -374,6 +379,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     apiKey, setApiKey,
     ollamaModel, setOllamaModel,
     ollamaUrl, setOllamaUrl,
+    geminiModel, setGeminiModel,
     preferredDiagramType, setPreferredDiagramType,
     nodes, setNodes,
     edges, setEdges,

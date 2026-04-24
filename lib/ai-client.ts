@@ -71,22 +71,14 @@ async function generateWithGemini(
   previousMermaid: string,
   apiKey: string,
   language: string,
-  preferredType: 'erd' | 'uml'
+  preferredType: 'erd' | 'uml',
+  geminiModel: string
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
   const userMessage = buildUserMessage(prompt, previousMermaid, language, preferredType);
-  // Try primary model, fall back to 1.5-flash on quota errors
   try {
-    return await tryGeminiModel('gemini-2.0-flash', genAI, userMessage);
+    return await tryGeminiModel(geminiModel, genAI, userMessage);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('429') || msg.includes('quota')) {
-      try {
-        return await tryGeminiModel('gemini-1.5-flash', genAI, userMessage);
-      } catch (fallbackErr) {
-        throw parseGeminiError(fallbackErr);
-      }
-    }
     throw parseGeminiError(err);
   }
 }
@@ -119,6 +111,7 @@ export async function generateDiagram(params: {
   prompt: string;
   model: 'cloud' | 'local';
   apiKey?: string;
+  geminiModel?: string;
   ollamaModel?: string;
   ollamaUrl?: string;
   language: string;
@@ -129,6 +122,7 @@ export async function generateDiagram(params: {
     prompt,
     model,
     apiKey,
+    geminiModel = 'gemini-2.0-flash',
     ollamaModel,
     ollamaUrl = 'http://localhost:11434',
     language,
@@ -140,7 +134,7 @@ export async function generateDiagram(params: {
 
   const code =
     model === 'cloud'
-      ? await generateWithGemini(prompt, previousMermaid, apiKey ?? '', language, preferredDiagramType)
+      ? await generateWithGemini(prompt, previousMermaid, apiKey ?? '', language, preferredDiagramType, geminiModel)
       : await generateWithOllama(prompt, previousMermaid, ollamaModel ?? 'llama3', language, preferredDiagramType, ollamaUrl);
 
   if (!validateMermaid(code)) {

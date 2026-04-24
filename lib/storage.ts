@@ -7,6 +7,7 @@ const KEYS = {
   MODEL_MODE: 'diagram_model_mode',
   OLLAMA_MODEL: 'diagram_ollama_model',
   OLLAMA_URL: 'diagram_ollama_url',
+  GEMINI_MODEL: 'diagram_gemini_model',
   LANGUAGE: 'diagram_language',
   PREFERRED_DIAGRAM_TYPE: 'diagram_preferred_type',
   // Projects
@@ -49,6 +50,9 @@ export const storage = {
 
   getOllamaUrl: (): string => safeGet<string>(KEYS.OLLAMA_URL, 'http://localhost:11434'),
   setOllamaUrl: (u: string) => safeSet(KEYS.OLLAMA_URL, u),
+
+  getGeminiModel: (): string => safeGet<string>(KEYS.GEMINI_MODEL, 'gemini-2.0-flash'),
+  setGeminiModel: (m: string) => safeSet(KEYS.GEMINI_MODEL, m),
 
   getLang: (): Lang => safeGet<Lang>(KEYS.LANGUAGE, 'en'),
   setLang: (l: Lang) => safeSet(KEYS.LANGUAGE, l),
