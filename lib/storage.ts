@@ -13,6 +13,7 @@ const KEYS = {
   KIMI_MODEL: 'diagram_kimi_model',
   OLLAMA_MODEL: 'diagram_ollama_model',
   OLLAMA_URL: 'diagram_ollama_url',
+  OLLAMA_LAN_URL: 'diagram_ollama_lan_url',
   LANGUAGE: 'diagram_language',
   PREFERRED_DIAGRAM_TYPE: 'diagram_preferred_type',
   // Projects
@@ -73,6 +74,9 @@ export const storage = {
 
   getOllamaUrl: (): string => safeGet<string>(KEYS.OLLAMA_URL, 'http://localhost:11434'),
   setOllamaUrl: (u: string) => safeSet(KEYS.OLLAMA_URL, u),
+
+  getOllamaLanUrl: (): string => safeGet<string>(KEYS.OLLAMA_LAN_URL, 'http://192.168.1.100:11434'),
+  setOllamaLanUrl: (u: string) => safeSet(KEYS.OLLAMA_LAN_URL, u),
 
   getLang: (): Lang => safeGet<Lang>(KEYS.LANGUAGE, 'en'),
   setLang: (l: Lang) => safeSet(KEYS.LANGUAGE, l),
