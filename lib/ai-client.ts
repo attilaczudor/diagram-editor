@@ -41,6 +41,31 @@ function validateMermaid(code: string): boolean {
   return first === 'erdiagram' || first === 'classdiagram';
 }
 
+function parseGeminiError(err: unknown): Error {
+  const msg = err instanceof Error ? err.message : String(err);
+  // 429 quota exceeded
+  if (msg.includes('429') || msg.includes('quota')) {
+    const retryMatch = msg.match(/retry in ([\d.]+)s/i);
+    const seconds = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : null;
+    const suffix = seconds ? ` Try again in ${seconds}s.` : ' Try again later.';
+    return new Error(`Gemini quota exceeded.${suffix} Upgrade your plan at ai.google.dev or switch to a local model in Settings.`);
+  }
+  if (msg.includes('API_KEY') || msg.includes('401') || msg.includes('403')) {
+    return new Error('Invalid Gemini API key. Check your key in Settings.');
+  }
+  return err instanceof Error ? err : new Error(msg);
+}
+
+async function tryGeminiModel(
+  modelName: string,
+  genAI: GoogleGenerativeAI,
+  userMessage: string
+): Promise<string> {
+  const model = genAI.getGenerativeModel({ model: modelName, systemInstruction: SYSTEM_INSTRUCTION });
+  const result = await model.generateContent(userMessage);
+  return stripCodeFences(result.response.text().trim());
+}
+
 async function generateWithGemini(
   prompt: string,
   previousMermaid: string,
@@ -49,14 +74,21 @@ async function generateWithGemini(
   preferredType: 'erd' | 'uml'
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    systemInstruction: SYSTEM_INSTRUCTION,
-  });
-  const result = await model.generateContent(
-    buildUserMessage(prompt, previousMermaid, language, preferredType)
-  );
-  return stripCodeFences(result.response.text().trim());
+  const userMessage = buildUserMessage(prompt, previousMermaid, language, preferredType);
+  // Try primary model, fall back to 1.5-flash on quota errors
+  try {
+    return await tryGeminiModel('gemini-2.0-flash', genAI, userMessage);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('429') || msg.includes('quota')) {
+      try {
+        return await tryGeminiModel('gemini-1.5-flash', genAI, userMessage);
+      } catch (fallbackErr) {
+        throw parseGeminiError(fallbackErr);
+      }
+    }
+    throw parseGeminiError(err);
+  }
 }
 
 async function generateWithOllama(
