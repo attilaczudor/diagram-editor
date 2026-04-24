@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Check,
@@ -15,6 +15,8 @@ import {
   Languages,
   Loader2,
   RefreshCw,
+  Search,
+  Server,
   Settings,
   Wifi,
   X,
@@ -28,11 +30,12 @@ import {
   pullModel,
   formatSize,
   OLLAMA_LIBRARY,
+  OllamaLibraryModel,
   OllamaModel,
   PullProgress,
 } from '@/lib/ollama-client';
 
-// ─── Section / Row wrappers ───────────────────────────────────────────────────
+// ─── Shared layout wrappers ───────────────────────────────────────────────────
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -55,68 +58,49 @@ function SettingsRow({ label, hint, children }: { label: string; hint?: string; 
   );
 }
 
-// ─── Generic API key input ────────────────────────────────────────────────────
+// ─── API key input ────────────────────────────────────────────────────────────
 
-function ApiKeyInput({
-  value, onSave, onClear, placeholder,
-}: {
+function ApiKeyInput({ value, onSave, onClear, placeholder }: {
   value: string; onSave: (v: string) => void; onClear: () => void; placeholder: string;
 }) {
   const [draft, setDraft] = useState(value);
   const [show, setShow] = useState(false);
   const [saved, setSaved] = useState(false);
-
   const save = () => {
-    const trimmed = draft.trim();
-    if (!trimmed) return;
-    onSave(trimmed);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    const t = draft.trim();
+    if (!t) return;
+    onSave(t); setSaved(true); setTimeout(() => setSaved(false), 2000);
   };
-
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <input
-            type={show ? 'text' : 'password'}
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && save()}
-            placeholder={placeholder}
-            className="input-field w-full pr-9 text-sm"
-          />
+          <input type={show ? 'text' : 'password'} value={draft}
+            onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()}
+            placeholder={placeholder} className="input-field w-full pr-9 text-sm" />
           <button onClick={() => setShow(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
             {show ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
-        <button onClick={save} className="btn-primary px-4 text-sm">
-          {saved ? <Check size={14} /> : 'Save'}
-        </button>
-        {value && (
-          <button onClick={() => { onClear(); setDraft(''); }} className="px-3 py-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/20 border border-gray-700 transition-all">
-            <X size={14} />
-          </button>
-        )}
+        <button onClick={save} className="btn-primary px-4 text-sm">{saved ? <Check size={14} /> : 'Save'}</button>
+        {value && <button onClick={() => { onClear(); setDraft(''); }} className="px-3 py-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/20 border border-gray-700 transition-all"><X size={14} /></button>}
       </div>
-      {value && (
-        <p className="text-xs text-green-400 flex items-center gap-1.5"><Check size={11} /> Active — ending in ···{value.slice(-4)}</p>
-      )}
+      {value && <p className="text-xs text-green-400 flex items-center gap-1.5"><Check size={11} /> Active — ending in ···{value.slice(-4)}</p>}
       <p className="text-xs text-gray-600">Stored locally in your browser only.</p>
     </div>
   );
 }
 
-// ─── Model card grid ──────────────────────────────────────────────────────────
+// ─── Model card grid (for cloud AI providers) ─────────────────────────────────
 
-function ModelGrid({ models, value, onChange }: { models: { id: string; label: string; hint: string }[]; value: string; onChange: (id: string) => void }) {
+function ModelGrid({ models, value, onChange }: {
+  models: { id: string; label: string; hint: string }[]; value: string; onChange: (id: string) => void;
+}) {
   return (
     <div className="grid grid-cols-2 gap-2">
       {models.map(m => (
-        <button
-          key={m.id} onClick={() => onChange(m.id)}
-          className={`flex flex-col items-start px-3 py-2.5 rounded-lg border text-left transition-all ${value === m.id ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}
-        >
+        <button key={m.id} onClick={() => onChange(m.id)}
+          className={`flex flex-col items-start px-3 py-2.5 rounded-lg border text-left transition-all ${value === m.id ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}>
           <span className="text-xs font-semibold">{m.label}</span>
           <span className="text-[10px] text-gray-500 mt-0.5">{m.hint}</span>
         </button>
@@ -125,7 +109,7 @@ function ModelGrid({ models, value, onChange }: { models: { id: string; label: s
   );
 }
 
-// ─── Provider configs ─────────────────────────────────────────────────────────
+// ─── Cloud AI provider configs ────────────────────────────────────────────────
 
 const GEMINI_MODELS = [
   { id: 'gemini-2.0-flash',      label: 'Flash 2.0',      hint: 'Fastest, default' },
@@ -134,35 +118,27 @@ const GEMINI_MODELS = [
   { id: 'gemini-1.5-pro',        label: 'Pro 1.5',        hint: 'Most capable' },
 ];
 const QWEN_MODELS = [
-  { id: 'qwen-max',   label: 'Qwen Max',   hint: 'Most powerful' },
-  { id: 'qwen-plus',  label: 'Qwen Plus',  hint: 'Balanced' },
+  { id: 'qwen-max', label: 'Qwen Max', hint: 'Most powerful' },
+  { id: 'qwen-plus', label: 'Qwen Plus', hint: 'Balanced' },
   { id: 'qwen-turbo', label: 'Qwen Turbo', hint: 'Fast & cheap' },
-  { id: 'qwen-long',  label: 'Qwen Long',  hint: 'Long context' },
+  { id: 'qwen-long', label: 'Qwen Long', hint: 'Long context' },
 ];
 const KIMI_MODELS = [
-  { id: 'moonshot-v1-8k',   label: 'Moonshot 8K',   hint: '8K context' },
-  { id: 'moonshot-v1-32k',  label: 'Moonshot 32K',  hint: '32K context' },
+  { id: 'moonshot-v1-8k', label: 'Moonshot 8K', hint: '8K context' },
+  { id: 'moonshot-v1-32k', label: 'Moonshot 32K', hint: '32K context' },
   { id: 'moonshot-v1-128k', label: 'Moonshot 128K', hint: '128K context' },
 ];
 const PROVIDERS: { id: CloudProvider; label: string; docsHint: string }[] = [
-  { id: 'gemini', label: 'Gemini (Google)',       docsHint: 'Get key at aistudio.google.com' },
-  { id: 'qwen',   label: 'Qwen (Alibaba Cloud)',  docsHint: 'Get key at dashscope.aliyuncs.com' },
-  { id: 'kimi',   label: 'Kimi (Moonshot AI)',    docsHint: 'Get key at platform.moonshot.cn' },
+  { id: 'gemini', label: 'Gemini (Google)',      docsHint: 'Get key at aistudio.google.com' },
+  { id: 'qwen',   label: 'Qwen (Alibaba Cloud)', docsHint: 'Get key at dashscope.aliyuncs.com' },
+  { id: 'kimi',   label: 'Kimi (Moonshot AI)',   docsHint: 'Get key at platform.moonshot.cn' },
 ];
 
-// ─── Cloud tab ────────────────────────────────────────────────────────────────
-
 function CloudTab() {
-  const {
-    cloudProvider, setCloudProvider,
-    apiKey, setApiKey,
-    geminiModel, setGeminiModel,
+  const { cloudProvider, setCloudProvider, apiKey, setApiKey, geminiModel, setGeminiModel,
     qwenApiKey, setQwenApiKey, qwenModel, setQwenModel,
-    kimiApiKey, setKimiApiKey, kimiModel, setKimiModel,
-  } = useApp();
-
-  const providerInfo = PROVIDERS.find(p => p.id === cloudProvider)!;
-
+    kimiApiKey, setKimiApiKey, kimiModel, setKimiModel } = useApp();
+  const info = PROVIDERS.find(p => p.id === cloudProvider)!;
   return (
     <div className="space-y-5">
       <div>
@@ -170,45 +146,113 @@ function CloudTab() {
         <select value={cloudProvider} onChange={e => setCloudProvider(e.target.value as CloudProvider)} className="input-field w-full text-sm">
           {PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
         </select>
-        <p className="text-xs text-gray-600 mt-1">{providerInfo.docsHint}</p>
+        <p className="text-xs text-gray-600 mt-1">{info.docsHint}</p>
       </div>
       <div className="h-px bg-gray-800" />
-      {cloudProvider === 'gemini' && (
-        <>
-          <div>
-            <div className="flex items-center gap-2 mb-2"><Key size={13} className="text-yellow-400" /><span className="text-sm font-medium text-gray-200">Gemini API Key</span></div>
-            <ApiKeyInput value={apiKey} onSave={setApiKey} onClear={() => setApiKey('')} placeholder="AIza..." />
-          </div>
-          <div><p className="text-xs text-gray-400 mb-2">Model</p><ModelGrid models={GEMINI_MODELS} value={geminiModel} onChange={setGeminiModel} /></div>
-        </>
-      )}
-      {cloudProvider === 'qwen' && (
-        <>
-          <div>
-            <div className="flex items-center gap-2 mb-2"><Key size={13} className="text-yellow-400" /><span className="text-sm font-medium text-gray-200">DashScope API Key</span></div>
-            <ApiKeyInput value={qwenApiKey} onSave={setQwenApiKey} onClear={() => setQwenApiKey('')} placeholder="sk-..." />
-          </div>
-          <div><p className="text-xs text-gray-400 mb-2">Model</p><ModelGrid models={QWEN_MODELS} value={qwenModel} onChange={setQwenModel} /></div>
-        </>
-      )}
-      {cloudProvider === 'kimi' && (
-        <>
-          <div>
-            <div className="flex items-center gap-2 mb-2"><Key size={13} className="text-yellow-400" /><span className="text-sm font-medium text-gray-200">Moonshot API Key</span></div>
-            <ApiKeyInput value={kimiApiKey} onSave={setKimiApiKey} onClear={() => setKimiApiKey('')} placeholder="sk-..." />
-          </div>
-          <div><p className="text-xs text-gray-400 mb-2">Model</p><ModelGrid models={KIMI_MODELS} value={kimiModel} onChange={setKimiModel} /></div>
-        </>
-      )}
+      {cloudProvider === 'gemini' && <>
+        <div><div className="flex items-center gap-2 mb-2"><Key size={13} className="text-yellow-400" /><span className="text-sm font-medium text-gray-200">Gemini API Key</span></div><ApiKeyInput value={apiKey} onSave={setApiKey} onClear={() => setApiKey('')} placeholder="AIza..." /></div>
+        <div><p className="text-xs text-gray-400 mb-2">Model</p><ModelGrid models={GEMINI_MODELS} value={geminiModel} onChange={setGeminiModel} /></div>
+      </>}
+      {cloudProvider === 'qwen' && <>
+        <div><div className="flex items-center gap-2 mb-2"><Key size={13} className="text-yellow-400" /><span className="text-sm font-medium text-gray-200">DashScope API Key</span></div><ApiKeyInput value={qwenApiKey} onSave={setQwenApiKey} onClear={() => setQwenApiKey('')} placeholder="sk-..." /></div>
+        <div><p className="text-xs text-gray-400 mb-2">Model</p><ModelGrid models={QWEN_MODELS} value={qwenModel} onChange={setQwenModel} /></div>
+      </>}
+      {cloudProvider === 'kimi' && <>
+        <div><div className="flex items-center gap-2 mb-2"><Key size={13} className="text-yellow-400" /><span className="text-sm font-medium text-gray-200">Moonshot API Key</span></div><ApiKeyInput value={kimiApiKey} onSave={setKimiApiKey} onClear={() => setKimiApiKey('')} placeholder="sk-..." /></div>
+        <div><p className="text-xs text-gray-400 mb-2">Model</p><ModelGrid models={KIMI_MODELS} value={kimiModel} onChange={setKimiModel} /></div>
+      </>}
     </div>
   );
 }
 
-// ─── Ollama: installed model manager ─────────────────────────────────────────
+// ─── Ollama: progress bar ─────────────────────────────────────────────────────
 
-function InstalledModels({
-  url, activeModel, onSelect,
+function PullBar({ progress }: { progress: PullProgress }) {
+  return (
+    <div className="space-y-1 pt-1">
+      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+          style={{
+            width: progress.percent != null ? `${progress.percent}%` : '100%',
+            animation: progress.percent == null ? 'pulse 1.5s infinite' : 'none',
+          }}
+        />
+      </div>
+      <p className="text-[10px] text-gray-500 truncate">
+        {progress.status}{progress.percent != null ? ` — ${progress.percent}%` : ''}
+      </p>
+    </div>
+  );
+}
+
+// ─── Ollama: pull-to destination picker ──────────────────────────────────────
+
+interface PullState {
+  target: 'local' | 'lan';
+  progress: PullProgress;
+}
+
+function PullButtons({
+  modelId,
+  localUrl,
+  lanUrl,
+  onDone,
 }: {
+  modelId: string;
+  localUrl: string;
+  lanUrl: string;
+  onDone: () => void;
+}) {
+  const [pulling, setPulling] = useState<PullState | null>(null);
+  const [done, setDone] = useState<'local' | 'lan' | null>(null);
+  const [err, setErr] = useState('');
+
+  const pull = async (target: 'local' | 'lan') => {
+    const url = target === 'local' ? localUrl : lanUrl;
+    setErr('');
+    setPulling({ target, progress: { status: 'Starting…' } });
+    try {
+      await pullModel(url, modelId, p => setPulling({ target, progress: p }));
+      setPulling(null);
+      setDone(target);
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Pull failed');
+      setPulling(null);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => !pulling && pull('local')}
+          disabled={!!pulling || done === 'local'}
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${done === 'local' ? 'bg-green-600/20 border-green-700 text-green-400' : pulling?.target === 'local' ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-900 border-gray-600 text-gray-300 hover:bg-indigo-600 hover:border-indigo-500 hover:text-white'}`}
+        >
+          {pulling?.target === 'local' ? <Loader2 size={11} className="animate-spin" /> : done === 'local' ? <Check size={11} /> : <Download size={11} />}
+          → Local
+        </button>
+        <button
+          onClick={() => lanUrl && !pulling && pull('lan')}
+          disabled={!lanUrl || !!pulling || done === 'lan'}
+          title={!lanUrl ? 'Configure LAN URL first' : undefined}
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${!lanUrl ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-700 text-gray-500' : done === 'lan' ? 'bg-green-600/20 border-green-700 text-green-400' : pulling?.target === 'lan' ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-900 border-gray-600 text-gray-300 hover:bg-emerald-600 hover:border-emerald-500 hover:text-white'}`}
+        >
+          {pulling?.target === 'lan' ? <Loader2 size={11} className="animate-spin" /> : done === 'lan' ? <Check size={11} /> : <Download size={11} />}
+          → LAN
+        </button>
+      </div>
+      {pulling && <PullBar progress={pulling.progress} />}
+      {err && <p className="text-[10px] text-red-400">{err}</p>}
+    </div>
+  );
+}
+
+// ─── Ollama: installed models manager ────────────────────────────────────────
+
+function InstalledModels({ url, activeModel, onSelect }: {
   url: string; activeModel: string; onSelect: (name: string) => void;
 }) {
   const [models, setModels] = useState<OllamaModel[]>([]);
@@ -219,11 +263,9 @@ function InstalledModels({
   const [pullErr, setPullErr] = useState('');
 
   const refresh = useCallback(async () => {
-    setStatus('loading');
-    setErrMsg('');
+    setStatus('loading'); setErrMsg('');
     try {
-      const list = await listModels(url);
-      setModels(list);
+      setModels(await listModels(url));
       setStatus('ok');
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : 'Cannot reach Ollama');
@@ -236,13 +278,10 @@ function InstalledModels({
   const doPull = async () => {
     const name = pullInput.trim();
     if (!name) return;
-    setPullErr('');
-    setPull({ status: 'Starting…' });
+    setPullErr(''); setPull({ status: 'Starting…' });
     try {
       await pullModel(url, name, p => setPull(p));
-      setPull(null);
-      setPullInput('');
-      refresh();
+      setPull(null); setPullInput(''); refresh();
     } catch (e) {
       setPullErr(e instanceof Error ? e.message : 'Pull failed');
       setPull(null);
@@ -251,7 +290,6 @@ function InstalledModels({
 
   return (
     <div className="space-y-4">
-      {/* Connection status */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs">
           <span className={`w-2 h-2 rounded-full ${status === 'ok' ? 'bg-green-400' : status === 'error' ? 'bg-red-400' : 'bg-gray-500'}`} />
@@ -259,17 +297,16 @@ function InstalledModels({
             {status === 'ok' ? `Connected · ${models.length} model${models.length !== 1 ? 's' : ''}` : status === 'error' ? errMsg : 'Connecting…'}
           </span>
         </div>
-        <button onClick={refresh} disabled={status === 'loading'} className="p-1 text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-40">
+        <button onClick={refresh} disabled={status === 'loading'} className="p-1 text-gray-500 hover:text-gray-300 disabled:opacity-40">
           <RefreshCw size={13} className={status === 'loading' ? 'animate-spin' : ''} />
         </button>
       </div>
-
-      {/* Installed models list */}
       {models.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-xs text-gray-400 font-medium">Installed Models</p>
           {models.map(m => (
-            <div key={m.name} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all ${activeModel === m.name ? 'bg-indigo-600/20 border-indigo-500' : 'bg-gray-900 border-gray-700 hover:border-gray-500'}`} onClick={() => onSelect(m.name)}>
+            <div key={m.name} onClick={() => onSelect(m.name)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all ${activeModel === m.name ? 'bg-indigo-600/20 border-indigo-500' : 'bg-gray-900 border-gray-700 hover:border-gray-500'}`}>
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeModel === m.name ? 'bg-indigo-400' : 'bg-gray-600'}`} />
               <span className="text-xs font-medium text-gray-200 flex-1 truncate">{m.name}</span>
               <span className="text-[10px] text-gray-500 shrink-0">{formatSize(m.size)}</span>
@@ -278,149 +315,194 @@ function InstalledModels({
           ))}
         </div>
       )}
-
-      {/* Pull a model */}
       <div className="space-y-2">
-        <p className="text-xs text-gray-400 font-medium">Pull a Model</p>
+        <p className="text-xs text-gray-400 font-medium">Pull by Name</p>
         <div className="flex gap-2">
-          <input
-            type="text" value={pullInput} onChange={e => setPullInput(e.target.value)}
+          <input type="text" value={pullInput} onChange={e => setPullInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && doPull()}
-            placeholder="e.g. llama3.2:3b"
-            className="input-field flex-1 text-sm"
-            disabled={!!pull}
-          />
+            placeholder="e.g. llama3.2:3b" className="input-field flex-1 text-sm" disabled={!!pull} />
           <button onClick={doPull} disabled={!pullInput.trim() || !!pull} className="btn-primary px-3 disabled:opacity-40">
             {pull ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
           </button>
         </div>
-        {pull && (
-          <div className="space-y-1">
-            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-500 rounded-full transition-all duration-300" style={{ width: pull.percent != null ? `${pull.percent}%` : '100%', animation: pull.percent == null ? 'pulse 1.5s infinite' : 'none' }} />
-            </div>
-            <p className="text-[10px] text-gray-500">{pull.status}{pull.percent != null ? ` — ${pull.percent}%` : ''}</p>
-          </div>
-        )}
+        {pull && <PullBar progress={pull} />}
         {pullErr && <p className="text-xs text-red-400">{pullErr}</p>}
       </div>
     </div>
   );
 }
 
-// ─── Ollama: model library browser ───────────────────────────────────────────
+// ─── Ollama: library model card ───────────────────────────────────────────────
 
-function ModelLibrary({ targetUrl }: { targetUrl: string }) {
-  const [pulling, setPulling] = useState<{ id: string; progress: PullProgress } | null>(null);
-  const [done, setDone] = useState<Set<string>>(new Set());
-  const [err, setErr] = useState<{ id: string; msg: string } | null>(null);
+function LibraryCard({ model, lanUrl, onPulled }: {
+  model: OllamaLibraryModel; lanUrl: string; onPulled?: () => void;
+}) {
+  const categoryColor = model.category === 'cloud'
+    ? 'text-purple-400 bg-purple-900/30 border-purple-800'
+    : 'text-emerald-400 bg-emerald-900/30 border-emerald-800';
 
-  const doPull = async (modelId: string) => {
-    setErr(null);
-    setPulling({ id: modelId, progress: { status: 'Starting…' } });
-    try {
-      await pullModel(targetUrl, modelId, p => setPulling({ id: modelId, progress: p }));
-      setPulling(null);
-      setDone(prev => new Set([...prev, modelId]));
-    } catch (e) {
-      setErr({ id: modelId, msg: e instanceof Error ? e.message : 'Pull failed' });
-      setPulling(null);
-    }
-  };
+  return (
+    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2.5">
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-gray-100">{model.label}</p>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${categoryColor}`}>
+              {model.category}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">{model.size} · {model.desc}</p>
+          <p className="text-[10px] text-gray-600 font-mono mt-0.5">{model.id}</p>
+        </div>
+      </div>
+      <PullButtons
+        modelId={model.id}
+        localUrl="http://localhost:11434"
+        lanUrl={lanUrl}
+        onDone={() => onPulled?.()}
+      />
+    </div>
+  );
+}
+
+// ─── Ollama: library browser with search + filter ────────────────────────────
+
+type LibraryFilter = 'all' | 'local' | 'cloud';
+
+function LibraryBrowser({ lanUrl }: { lanUrl: string }) {
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<LibraryFilter>('all');
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const filtered = OLLAMA_LIBRARY.filter(m => {
+    const q = search.toLowerCase();
+    const matchSearch = !q ||
+      m.label.toLowerCase().includes(q) ||
+      m.id.toLowerCase().includes(q) ||
+      m.desc.toLowerCase().includes(q) ||
+      m.tags.some(tag => tag.includes(q));
+    const matchFilter = filter === 'all' || m.category === filter;
+    return matchSearch && matchFilter;
+  });
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-xs text-gray-500">
-        <Cloud size={11} />
-        <span>Pulling to: <code className="text-gray-400">{targetUrl}</code></span>
+      {/* Search */}
+      <div className="relative">
+        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <input
+          ref={searchRef}
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search models…"
+          className="input-field w-full pl-8 text-sm"
+        />
+        {search && (
+          <button onClick={() => { setSearch(''); searchRef.current?.focus(); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+            <X size={13} />
+          </button>
+        )}
       </div>
-      <div className="space-y-2">
-        {OLLAMA_LIBRARY.map(m => {
-          const isPulling = pulling?.id === m.id;
-          const isDone = done.has(m.id);
-          const hasErr = err?.id === m.id;
-          return (
-            <div key={m.id} className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-100 truncate">{m.label}</p>
-                  <p className="text-xs text-gray-500">{m.size} · {m.desc}</p>
-                </div>
-                <button
-                  onClick={() => !isPulling && !isDone && doPull(m.id)}
-                  disabled={isPulling || isDone}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDone ? 'bg-green-600/20 text-green-400 border border-green-700' : isPulling ? 'bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
-                >
-                  {isDone ? <><Check size={12} /> Downloaded</> : isPulling ? <Loader2 size={12} className="animate-spin" /> : <><Download size={12} /> Pull</>}
-                </button>
-              </div>
-              {isPulling && (
-                <div className="space-y-1">
-                  <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 rounded-full transition-all duration-300" style={{ width: pulling.progress.percent != null ? `${pulling.progress.percent}%` : '40%', animation: pulling.progress.percent == null ? 'pulse 1.5s infinite' : 'none' }} />
-                  </div>
-                  <p className="text-[10px] text-gray-500">{pulling.progress.status}{pulling.progress.percent != null ? ` — ${pulling.progress.percent}%` : ''}</p>
-                </div>
-              )}
-              {hasErr && <p className="text-xs text-red-400">{err!.msg}</p>}
-            </div>
-          );
-        })}
+
+      {/* Radio filter */}
+      <div className="flex items-center gap-4">
+        {(['all', 'local', 'cloud'] as LibraryFilter[]).map(f => (
+          <label key={f} className="flex items-center gap-1.5 cursor-pointer group">
+            <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all ${filter === f ? 'border-indigo-500 bg-indigo-500' : 'border-gray-600 group-hover:border-gray-400'}`}>
+              {filter === f && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </span>
+            <input type="radio" className="sr-only" value={f} checked={filter === f} onChange={() => setFilter(f)} />
+            <span className={`text-xs capitalize font-medium ${filter === f ? 'text-indigo-400' : 'text-gray-500 group-hover:text-gray-300'}`}>{f}</span>
+          </label>
+        ))}
+        <span className="ml-auto text-[10px] text-gray-600">{filtered.length} model{filtered.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* LAN hint */}
+      {!lanUrl && (
+        <p className="text-[10px] text-yellow-600/80">Configure a LAN URL in the LAN tab to enable "→ LAN" pull.</p>
+      )}
+
+      {/* Cards */}
+      <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
+        {filtered.length === 0
+          ? <p className="text-xs text-gray-500 text-center py-6">No models match your search.</p>
+          : filtered.map(m => <LibraryCard key={m.id} model={m} lanUrl={lanUrl} />)
+        }
       </div>
     </div>
   );
 }
 
-// ─── Ollama tab (with Local / LAN / Library sub-tabs) ────────────────────────
+// ─── Ollama: cloud-only library (large models) ────────────────────────────────
+
+function CloudLibrary({ lanUrl }: { lanUrl: string }) {
+  const cloudModels = OLLAMA_LIBRARY.filter(m => m.category === 'cloud');
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500">Large models requiring server or cloud GPU (≥ 16 GB VRAM). Pull to your LAN Ollama instance.</p>
+      {!lanUrl && (
+        <p className="text-[10px] text-yellow-600/80">Configure a LAN URL in the LAN tab to enable "→ LAN" pull.</p>
+      )}
+      <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
+        {cloudModels.map(m => <LibraryCard key={m.id} model={m} lanUrl={lanUrl} />)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Ollama tab (Local | LAN | Cloud | Library) ───────────────────────────────
+
+type OllamaSubTab = 'local' | 'lan' | 'cloud' | 'library';
 
 function OllamaTab() {
   const { ollamaUrl, setOllamaUrl, ollamaModel, setOllamaModel } = useApp();
-
-  const [subTab, setSubTab] = useState<'local' | 'lan' | 'library'>(() =>
+  const [subTab, setSubTab] = useState<OllamaSubTab>(() =>
     ollamaUrl === 'http://localhost:11434' ? 'local' : 'lan'
   );
-  const [lanUrl, setLanUrlState] = useState(() => storage.getOllamaLanUrl());
-
-  const switchToLocal = () => {
-    setSubTab('local');
-    setOllamaUrl('http://localhost:11434');
-  };
+  const [lanUrl, setLanUrlLocal] = useState(() => storage.getOllamaLanUrl());
 
   const applyLan = (url: string) => {
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    storage.setOllamaLanUrl(trimmed);
-    setOllamaUrl(trimmed);
+    const u = url.trim();
+    if (!u) return;
+    storage.setOllamaLanUrl(u);
+    setOllamaUrl(u);
   };
 
-  const activeUrl = subTab === 'local' ? 'http://localhost:11434' : subTab === 'lan' ? lanUrl : ollamaUrl;
+  const SUBTABS: { id: OllamaSubTab; icon: React.ElementType; label: string }[] = [
+    { id: 'local',   icon: Cpu,    label: 'Local' },
+    { id: 'lan',     icon: Wifi,   label: 'LAN' },
+    { id: 'cloud',   icon: Server, label: 'Cloud' },
+    { id: 'library', icon: Cloud,  label: 'Library' },
+  ];
 
   return (
     <div className="space-y-4">
-      {/* Sub-tabs */}
+      {/* Sub-tab bar */}
       <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-xs">
-        {([
-          { id: 'local',   icon: Cpu,   label: 'Local' },
-          { id: 'lan',     icon: Wifi,  label: 'LAN' },
-          { id: 'library', icon: Cloud, label: 'Library' },
-        ] as const).map(({ id, icon: Icon, label }) => (
+        {SUBTABS.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
             onClick={() => {
               setSubTab(id);
-              if (id === 'local') switchToLocal();
+              if (id === 'local') setOllamaUrl('http://localhost:11434');
               if (id === 'lan' && lanUrl) setOllamaUrl(lanUrl);
             }}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-all font-medium ${subTab === id ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            <Icon size={12} /> {label}
+            <Icon size={11} /> {label}
           </button>
         ))}
       </div>
 
       {/* Local */}
       {subTab === 'local' && (
-        <InstalledModels url="http://localhost:11434" activeModel={ollamaModel} onSelect={m => { setOllamaModel(m); setOllamaUrl('http://localhost:11434'); }} />
+        <InstalledModels
+          url="http://localhost:11434"
+          activeModel={ollamaModel}
+          onSelect={m => { setOllamaModel(m); setOllamaUrl('http://localhost:11434'); }}
+        />
       )}
 
       {/* LAN */}
@@ -428,21 +510,29 @@ function OllamaTab() {
         <div className="space-y-4">
           <div className="flex gap-2">
             <input
-              type="text"
-              value={lanUrl}
-              onChange={e => setLanUrlState(e.target.value)}
+              type="text" value={lanUrl}
+              onChange={e => setLanUrlLocal(e.target.value)}
               onBlur={() => applyLan(lanUrl)}
               placeholder="http://192.168.1.100:11434"
               className="input-field flex-1 text-sm"
             />
             <button onClick={() => applyLan(lanUrl)} className="btn-primary px-3 text-sm">Connect</button>
           </div>
-          {lanUrl && <InstalledModels url={lanUrl} activeModel={ollamaModel} onSelect={m => { setOllamaModel(m); applyLan(lanUrl); }} />}
+          {lanUrl && (
+            <InstalledModels
+              url={lanUrl}
+              activeModel={ollamaModel}
+              onSelect={m => { setOllamaModel(m); applyLan(lanUrl); }}
+            />
+          )}
         </div>
       )}
 
-      {/* Library */}
-      {subTab === 'library' && <ModelLibrary targetUrl={activeUrl} />}
+      {/* Cloud-only models */}
+      {subTab === 'cloud' && <CloudLibrary lanUrl={lanUrl} />}
+
+      {/* Full library */}
+      {subTab === 'library' && <LibraryBrowser lanUrl={lanUrl} />}
 
       <p className="text-xs text-gray-600">
         Ollama must be running with{' '}
@@ -482,8 +572,8 @@ export default function SettingsPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        {/* ── AI Provider ──────────────────────────────────────────── */}
         <Section title={t(lang, 'aiProvider')}>
+          {/* Cloud / Ollama top-level tabs */}
           <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-sm mb-5">
             <button onClick={() => switchTab('cloud')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 transition-all font-medium ${aiTab === 'cloud' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>
               <Cloud size={14} /> Cloud
@@ -495,7 +585,6 @@ export default function SettingsPage() {
           {aiTab === 'cloud' ? <CloudTab /> : <OllamaTab />}
         </Section>
 
-        {/* ── Appearance ───────────────────────────────────────────── */}
         <Section title={t(lang, 'appearance')}>
           <SettingsRow label={t(lang, 'language')} hint="Interface language for all UI labels.">
             <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-sm">
@@ -508,7 +597,6 @@ export default function SettingsPage() {
           </SettingsRow>
         </Section>
 
-        {/* ── About ────────────────────────────────────────────────── */}
         <Section title={t(lang, 'about')}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-600/20 flex items-center justify-center">
