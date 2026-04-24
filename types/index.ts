@@ -1,3 +1,5 @@
+import type { Node, Edge } from '@xyflow/react';
+
 export type Lang = 'en' | 'hu';
 export type ModelMode = 'cloud' | 'local';
 export type DiagramType = 'erd' | 'uml' | 'unknown';
@@ -9,6 +11,19 @@ export interface ChatMessage {
   mermaidCode?: string;
   timestamp: number;
   error?: boolean;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  mermaidCode: string;
+  nodes: Node[];
+  edges: Edge[];
+  chatHistory: ChatMessage[];
+  preferredDiagramType: 'erd' | 'uml';
+  pinned: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ERDAttribute {

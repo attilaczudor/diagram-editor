@@ -1,16 +1,22 @@
-import { ChatMessage, Lang, ModelMode } from '@/types';
+import { ChatMessage, Lang, ModelMode, Project } from '@/types';
 import { Node, Edge } from '@xyflow/react';
 
 const KEYS = {
+  // Settings
   API_KEY: 'gemini_api_key',
   MODEL_MODE: 'diagram_model_mode',
   OLLAMA_MODEL: 'diagram_ollama_model',
+  OLLAMA_URL: 'diagram_ollama_url',
   LANGUAGE: 'diagram_language',
   PREFERRED_DIAGRAM_TYPE: 'diagram_preferred_type',
-  CHAT_HISTORY: 'diagram_chat_history',
-  MERMAID_CODE: 'diagram_mermaid_code',
-  NODES: 'diagram_nodes',
-  EDGES: 'diagram_edges',
+  // Projects
+  PROJECTS: 'diagram_projects',
+  CURRENT_PROJECT_ID: 'diagram_current_project_id',
+  // Legacy keys (pre-project era — used for migration only)
+  LEGACY_MERMAID: 'diagram_mermaid_code',
+  LEGACY_NODES: 'diagram_nodes',
+  LEGACY_EDGES: 'diagram_edges',
+  LEGACY_CHAT: 'diagram_chat_history',
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -26,21 +32,14 @@ function safeGet<T>(key: string, fallback: T): T {
 function safeSet(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Storage quota exceeded or unavailable — silently ignore
-  }
+  } catch { /* quota exceeded — silently ignore */ }
 }
 
 export const storage = {
-  getApiKey: (): string => {
-    try { return localStorage.getItem(KEYS.API_KEY) ?? ''; } catch { return ''; }
-  },
-  setApiKey: (key: string): void => {
-    try { localStorage.setItem(KEYS.API_KEY, key); } catch { /* noop */ }
-  },
-  removeApiKey: (): void => {
-    try { localStorage.removeItem(KEYS.API_KEY); } catch { /* noop */ }
-  },
+  // ── Settings ──────────────────────────────────────────────────────────────
+  getApiKey: (): string => { try { return localStorage.getItem(KEYS.API_KEY) ?? ''; } catch { return ''; } },
+  setApiKey: (k: string) => { try { localStorage.setItem(KEYS.API_KEY, k); } catch { /* noop */ } },
+  removeApiKey: () => { try { localStorage.removeItem(KEYS.API_KEY); } catch { /* noop */ } },
 
   getModelMode: (): ModelMode => safeGet<ModelMode>(KEYS.MODEL_MODE, 'cloud'),
   setModelMode: (m: ModelMode) => safeSet(KEYS.MODEL_MODE, m),
@@ -48,30 +47,32 @@ export const storage = {
   getOllamaModel: (): string => safeGet<string>(KEYS.OLLAMA_MODEL, 'llama3'),
   setOllamaModel: (m: string) => safeSet(KEYS.OLLAMA_MODEL, m),
 
+  getOllamaUrl: (): string => safeGet<string>(KEYS.OLLAMA_URL, 'http://localhost:11434'),
+  setOllamaUrl: (u: string) => safeSet(KEYS.OLLAMA_URL, u),
+
   getLang: (): Lang => safeGet<Lang>(KEYS.LANGUAGE, 'en'),
   setLang: (l: Lang) => safeSet(KEYS.LANGUAGE, l),
 
   getPreferredDiagramType: (): 'erd' | 'uml' => safeGet<'erd' | 'uml'>(KEYS.PREFERRED_DIAGRAM_TYPE, 'erd'),
   setPreferredDiagramType: (t: 'erd' | 'uml') => safeSet(KEYS.PREFERRED_DIAGRAM_TYPE, t),
 
-  getChatHistory: (): ChatMessage[] => safeGet<ChatMessage[]>(KEYS.CHAT_HISTORY, []),
-  setChatHistory: (h: ChatMessage[]) => safeSet(KEYS.CHAT_HISTORY, h),
+  // ── Projects ──────────────────────────────────────────────────────────────
+  getProjects: (): Project[] => safeGet<Project[]>(KEYS.PROJECTS, []),
+  setProjects: (p: Project[]) => safeSet(KEYS.PROJECTS, p),
 
-  getMermaidCode: (): string => safeGet<string>(KEYS.MERMAID_CODE, ''),
-  setMermaidCode: (c: string) => safeSet(KEYS.MERMAID_CODE, c),
+  getCurrentProjectId: (): string | null => safeGet<string | null>(KEYS.CURRENT_PROJECT_ID, null),
+  setCurrentProjectId: (id: string | null) => safeSet(KEYS.CURRENT_PROJECT_ID, id),
 
-  getNodes: (): Node[] => safeGet<Node[]>(KEYS.NODES, []),
-  setNodes: (n: Node[]) => safeSet(KEYS.NODES, n),
-
-  getEdges: (): Edge[] => safeGet<Edge[]>(KEYS.EDGES, []),
-  setEdges: (e: Edge[]) => safeSet(KEYS.EDGES, e),
-
-  clearDiagram: (): void => {
+  // ── Legacy (migration only) ────────────────────────────────────────────────
+  getLegacyMermaid: (): string => safeGet<string>(KEYS.LEGACY_MERMAID, ''),
+  getLegacyNodes: (): Node[] => safeGet<Node[]>(KEYS.LEGACY_NODES, []),
+  getLegacyEdges: (): Edge[] => safeGet<Edge[]>(KEYS.LEGACY_EDGES, []),
+  getLegacyChat: (): ChatMessage[] => safeGet<ChatMessage[]>(KEYS.LEGACY_CHAT, []),
+  clearLegacy: () => {
     try {
-      localStorage.removeItem(KEYS.CHAT_HISTORY);
-      localStorage.removeItem(KEYS.MERMAID_CODE);
-      localStorage.removeItem(KEYS.NODES);
-      localStorage.removeItem(KEYS.EDGES);
+      [KEYS.LEGACY_MERMAID, KEYS.LEGACY_NODES, KEYS.LEGACY_EDGES, KEYS.LEGACY_CHAT].forEach(k =>
+        localStorage.removeItem(k)
+      );
     } catch { /* noop */ }
   },
 };

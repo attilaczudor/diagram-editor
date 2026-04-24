@@ -53,7 +53,9 @@ async function generateWithGemini(
     model: 'gemini-2.0-flash',
     systemInstruction: SYSTEM_INSTRUCTION,
   });
-  const result = await model.generateContent(buildUserMessage(prompt, previousMermaid, language, preferredType));
+  const result = await model.generateContent(
+    buildUserMessage(prompt, previousMermaid, language, preferredType)
+  );
   return stripCodeFences(result.response.text().trim());
 }
 
@@ -62,16 +64,20 @@ async function generateWithOllama(
   previousMermaid: string,
   ollamaModel: string,
   language: string,
-  preferredType: 'erd' | 'uml'
+  preferredType: 'erd' | 'uml',
+  ollamaUrl: string
 ): Promise<string> {
+  const base = ollamaUrl.replace(/\/$/, '');
   const fullPrompt = `${SYSTEM_INSTRUCTION}\n\n${buildUserMessage(prompt, previousMermaid, language, preferredType)}`;
-  const response = await fetch('http://localhost:11434/api/generate', {
+  const response = await fetch(`${base}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: ollamaModel || 'llama3', prompt: fullPrompt, stream: false }),
   });
   if (!response.ok) {
-    throw new Error(`Ollama error: ${response.status} ${response.statusText}. Make sure Ollama is running with OLLAMA_ORIGINS=* set.`);
+    throw new Error(
+      `Ollama error: ${response.status} ${response.statusText}. Ensure Ollama is running with OLLAMA_ORIGINS=* and the URL is correct in Settings.`
+    );
   }
   const data = (await response.json()) as { response: string };
   return stripCodeFences(data.response.trim());
@@ -82,18 +88,28 @@ export async function generateDiagram(params: {
   model: 'cloud' | 'local';
   apiKey?: string;
   ollamaModel?: string;
+  ollamaUrl?: string;
   language: string;
   previousMermaid?: string;
   preferredDiagramType?: 'erd' | 'uml';
 }): Promise<string> {
-  const { prompt, model, apiKey, ollamaModel, language, previousMermaid = '', preferredDiagramType = 'erd' } = params;
+  const {
+    prompt,
+    model,
+    apiKey,
+    ollamaModel,
+    ollamaUrl = 'http://localhost:11434',
+    language,
+    previousMermaid = '',
+    preferredDiagramType = 'erd',
+  } = params;
 
   if (!prompt.trim()) throw new Error('Prompt is required.');
 
   const code =
     model === 'cloud'
       ? await generateWithGemini(prompt, previousMermaid, apiKey ?? '', language, preferredDiagramType)
-      : await generateWithOllama(prompt, previousMermaid, ollamaModel ?? 'llama3', language, preferredDiagramType);
+      : await generateWithOllama(prompt, previousMermaid, ollamaModel ?? 'llama3', language, preferredDiagramType, ollamaUrl);
 
   if (!validateMermaid(code)) {
     throw new Error(
