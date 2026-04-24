@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, MessageSquare } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2, MessageSquare, Settings } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { t } from '@/lib/i18n';
 import dynamic from 'next/dynamic';
@@ -100,7 +101,7 @@ export default function BottomSheet() {
           transition: dragDelta > 0 ? 'none' : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
         }}
       >
-        {/* Drag handle — touching this area drags the sheet */}
+        {/* Drag handle + header row */}
         <div
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
@@ -108,6 +109,17 @@ export default function BottomSheet() {
           className="flex flex-col items-center pt-3 pb-1 shrink-0 touch-none cursor-grab active:cursor-grabbing select-none"
         >
           <div className="w-10 h-1 rounded-full bg-gray-700" />
+          <div className="w-full flex items-center justify-between px-4 pt-2 pb-0.5">
+            <span className="text-xs font-semibold text-gray-400 tracking-wide uppercase">Chat</span>
+            <Link
+              href="/settings"
+              onClick={close}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+              aria-label="Settings"
+            >
+              <Settings size={16} />
+            </Link>
+          </div>
         </div>
 
         {/* Chat panel fills remaining height */}
