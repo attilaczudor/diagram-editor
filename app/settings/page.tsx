@@ -17,7 +17,8 @@ import {
   RefreshCw,
   Search,
   Server,
-  Settings,
+  Trash2,
+  User,
   Wifi,
   X,
 } from 'lucide-react';
@@ -67,9 +68,9 @@ function ApiKeyInput({ value, onSave, onClear, placeholder }: {
   const [show, setShow] = useState(false);
   const [saved, setSaved] = useState(false);
   const save = () => {
-    const t = draft.trim();
-    if (!t) return;
-    onSave(t); setSaved(true); setTimeout(() => setSaved(false), 2000);
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    onSave(trimmed); setSaved(true); setTimeout(() => setSaved(false), 2000);
   };
   return (
     <div className="space-y-2">
@@ -387,7 +388,6 @@ function LibraryBrowser({ lanUrl }: { lanUrl: string }) {
 
   return (
     <div className="space-y-3">
-      {/* Search */}
       <div className="relative">
         <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
         <input
@@ -405,7 +405,6 @@ function LibraryBrowser({ lanUrl }: { lanUrl: string }) {
         )}
       </div>
 
-      {/* Radio filter */}
       <div className="flex items-center gap-4">
         {(['all', 'local', 'cloud'] as LibraryFilter[]).map(f => (
           <label key={f} className="flex items-center gap-1.5 cursor-pointer group">
@@ -419,12 +418,10 @@ function LibraryBrowser({ lanUrl }: { lanUrl: string }) {
         <span className="ml-auto text-[10px] text-gray-600">{filtered.length} model{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* LAN hint */}
       {!lanUrl && (
         <p className="text-[10px] text-yellow-600/80">Configure a LAN URL in the LAN tab to enable "→ LAN" pull.</p>
       )}
 
-      {/* Cards */}
       <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
         {filtered.length === 0
           ? <p className="text-xs text-gray-500 text-center py-6">No models match your search.</p>
@@ -479,7 +476,6 @@ function OllamaTab() {
 
   return (
     <div className="space-y-4">
-      {/* Sub-tab bar */}
       <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-xs">
         {SUBTABS.map(({ id, icon: Icon, label }) => (
           <button
@@ -496,7 +492,6 @@ function OllamaTab() {
         ))}
       </div>
 
-      {/* Local */}
       {subTab === 'local' && (
         <InstalledModels
           url="http://localhost:11434"
@@ -505,7 +500,6 @@ function OllamaTab() {
         />
       )}
 
-      {/* LAN */}
       {subTab === 'lan' && (
         <div className="space-y-4">
           <div className="flex gap-2">
@@ -528,10 +522,7 @@ function OllamaTab() {
         </div>
       )}
 
-      {/* Cloud-only models */}
       {subTab === 'cloud' && <CloudLibrary lanUrl={lanUrl} />}
-
-      {/* Full library */}
       {subTab === 'library' && <LibraryBrowser lanUrl={lanUrl} />}
 
       <p className="text-xs text-gray-600">
@@ -542,10 +533,10 @@ function OllamaTab() {
   );
 }
 
-// ─── Settings page ────────────────────────────────────────────────────────────
+// ─── Page tab: AI Providers ───────────────────────────────────────────────────
 
-export default function SettingsPage() {
-  const { lang, setLang, modelMode, setModelMode } = useApp();
+function AiProvidersTab() {
+  const { modelMode, setModelMode } = useApp();
   const [aiTab, setAiTab] = useState<'cloud' | 'ollama'>(modelMode === 'local' ? 'ollama' : 'cloud');
 
   const switchTab = (tab: 'cloud' | 'ollama') => {
@@ -554,60 +545,189 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080b14] text-gray-100">
-      <header className="sticky top-0 z-10 flex items-center gap-4 px-4 py-3 bg-gray-950/90 backdrop-blur-sm border-b border-gray-800">
-        <Link href="/" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={15} /> {t(lang, 'back')}
-        </Link>
-        <div className="flex items-center gap-2 ml-2">
-          <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
-            <GitBranch size={12} className="text-white" />
+    <div className="space-y-5">
+      <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-sm">
+        <button onClick={() => switchTab('cloud')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 transition-all font-medium ${aiTab === 'cloud' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+          <Cloud size={14} /> Cloud
+        </button>
+        <button onClick={() => switchTab('ollama')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 transition-all font-medium ${aiTab === 'ollama' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+          <Cpu size={14} /> Ollama
+        </button>
+      </div>
+      {aiTab === 'cloud' ? <CloudTab /> : <OllamaTab />}
+    </div>
+  );
+}
+
+// ─── Page tab: Others ─────────────────────────────────────────────────────────
+
+function OthersTab() {
+  const { lang, setLang } = useApp();
+  return (
+    <div className="space-y-8">
+      <Section title={t(lang, 'appearance')}>
+        <SettingsRow label={t(lang, 'language')} hint="Interface language for all UI labels.">
+          <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-sm">
+            {(['en', 'hu'] as Lang[]).map(l => (
+              <button key={l} onClick={() => setLang(l)} className={`flex items-center gap-1.5 px-4 py-2 transition-all font-medium uppercase ${lang === l ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                <Languages size={12} /> {l}
+              </button>
+            ))}
           </div>
-          <span className="text-sm font-bold text-white">{t(lang, 'title')}</span>
+        </SettingsRow>
+      </Section>
+
+      <Section title={t(lang, 'about')}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600/20 flex items-center justify-center">
+            <GitBranch size={18} className="text-indigo-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-100">{t(lang, 'title')}</p>
+            <p className="text-xs text-gray-500">{t(lang, 'aboutDesc')}</p>
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Settings size={15} className="text-gray-500" />
-          <span className="text-sm font-semibold text-gray-200">{t(lang, 'settingsTitle')}</span>
+      </Section>
+    </div>
+  );
+}
+
+// ─── Page tab: Account ────────────────────────────────────────────────────────
+
+const DISPLAY_NAME_KEY = 'diagram_display_name';
+
+function getStorageUsed(): string {
+  try {
+    let total = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) total += (localStorage.getItem(key) ?? '').length + key.length;
+    }
+    return (total / 1024).toFixed(1) + ' KB';
+  } catch { return 'unknown'; }
+}
+
+function AccountTab() {
+  const [name, setName] = useState(() => {
+    try { return localStorage.getItem(DISPLAY_NAME_KEY) ?? ''; } catch { return ''; }
+  });
+  const [nameSaved, setNameSaved] = useState(false);
+  const [cleared, setCleared] = useState(false);
+  const storageUsed = getStorageUsed();
+
+  const saveName = () => {
+    try { localStorage.setItem(DISPLAY_NAME_KEY, name.trim()); } catch {}
+    setNameSaved(true);
+    setTimeout(() => setNameSaved(false), 2000);
+  };
+
+  const clearData = () => {
+    if (!window.confirm('Clear all app data? This cannot be undone.')) return;
+    try { localStorage.clear(); } catch {}
+    setCleared(true);
+  };
+
+  return (
+    <div className="space-y-8">
+      <Section title="Profile">
+        <div className="space-y-5">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-indigo-600/20 border border-indigo-700/50 flex items-center justify-center shrink-0">
+              <User size={28} className="text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-200">{name || 'Local User'}</p>
+              <p className="text-xs text-gray-500">No cloud account required</p>
+            </div>
+          </div>
+          <SettingsRow label="Display Name" hint="Shown locally in the app.">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveName()}
+                placeholder="Your name"
+                className="input-field text-sm w-36"
+              />
+              <button onClick={saveName} className="btn-primary px-3 text-sm">
+                {nameSaved ? <Check size={14} /> : 'Save'}
+              </button>
+            </div>
+          </SettingsRow>
+        </div>
+      </Section>
+
+      <Section title="Storage">
+        <div className="space-y-4">
+          <SettingsRow label="Local Storage Used" hint="All data is stored only in your browser.">
+            <span className="text-sm text-gray-300 font-mono tabular-nums">{storageUsed}</span>
+          </SettingsRow>
+          <div className="h-px bg-gray-800" />
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-red-400 uppercase tracking-wide">Danger Zone</p>
+            {cleared ? (
+              <p className="text-sm text-green-400 flex items-center gap-1.5">
+                <Check size={13} /> Data cleared — refresh the page to reset the app.
+              </p>
+            ) : (
+              <button
+                onClick={clearData}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-800/60 text-red-400 hover:bg-red-900/20 text-sm transition-all"
+              >
+                <Trash2 size={14} /> Clear All Data
+              </button>
+            )}
+          </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+// ─── Settings page ────────────────────────────────────────────────────────────
+
+type SettingsTab = 'ai' | 'others' | 'account';
+
+const PAGE_TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'ai',      label: 'AI Providers' },
+  { id: 'others',  label: 'Others' },
+  { id: 'account', label: 'Account' },
+];
+
+export default function SettingsPage() {
+  const { lang } = useApp();
+  const [tab, setTab] = useState<SettingsTab>('ai');
+
+  return (
+    <div className="min-h-screen bg-[#080b14] text-gray-100">
+      <header className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur-sm border-b border-gray-800">
+        <div className="flex items-center gap-3 px-4 pt-3 pb-2">
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={15} /> {t(lang, 'back')}
+          </Link>
+          <h1 className="text-sm font-bold text-white">{t(lang, 'settingsTitle')}</h1>
+        </div>
+        <div className="flex px-2 gap-0.5">
+          {PAGE_TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${tab === id ? 'text-white border-indigo-500' : 'text-gray-400 border-transparent hover:text-gray-200'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        <Section title={t(lang, 'aiProvider')}>
-          {/* Cloud / Ollama top-level tabs */}
-          <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-sm mb-5">
-            <button onClick={() => switchTab('cloud')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 transition-all font-medium ${aiTab === 'cloud' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-              <Cloud size={14} /> Cloud
-            </button>
-            <button onClick={() => switchTab('ollama')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 transition-all font-medium ${aiTab === 'ollama' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-              <Cpu size={14} /> Ollama
-            </button>
-          </div>
-          {aiTab === 'cloud' ? <CloudTab /> : <OllamaTab />}
-        </Section>
-
-        <Section title={t(lang, 'appearance')}>
-          <SettingsRow label={t(lang, 'language')} hint="Interface language for all UI labels.">
-            <div className="flex rounded-lg bg-gray-900 border border-gray-700 overflow-hidden text-sm">
-              {(['en', 'hu'] as Lang[]).map(l => (
-                <button key={l} onClick={() => setLang(l)} className={`flex items-center gap-1.5 px-4 py-2 transition-all font-medium uppercase ${lang === l ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-                  <Languages size={12} /> {l}
-                </button>
-              ))}
-            </div>
-          </SettingsRow>
-        </Section>
-
-        <Section title={t(lang, 'about')}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 flex items-center justify-center">
-              <GitBranch size={18} className="text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-100">{t(lang, 'title')}</p>
-              <p className="text-xs text-gray-500">{t(lang, 'aboutDesc')}</p>
-            </div>
-          </div>
-        </Section>
+      <main className="max-w-2xl mx-auto px-4 py-8">
+        {tab === 'ai'      && <AiProvidersTab />}
+        {tab === 'others'  && <OthersTab />}
+        {tab === 'account' && <AccountTab />}
       </main>
     </div>
   );
